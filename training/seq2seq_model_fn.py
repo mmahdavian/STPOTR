@@ -356,8 +356,8 @@ class ModelFn(object):
           thisname, e, eval_loss, eval_loss_traj, self._params['learning_rate'])+act_log)
       
       if check_eval<best_eval_loss:
-          if self.model_saved_pose != None:
-              os.remove(self.model_saved_pose)
+    #      if self.model_saved_pose != None:
+    #          os.remove(self.model_saved_pose)
           best_eval_loss = check_eval
           model_path_pose = os.path.join(
               self._params['model_prefix'], 'models', 'best_epoch_pose_%04d.pt'%e)              
@@ -366,8 +366,8 @@ class ModelFn(object):
           print("Best Epoch for pose saved")
           
       if check_eval_traj<best_eval_loss_traj:
-          if self.model_saved_traj != None:
-              os.remove(self.model_saved_traj)
+     #     if self.model_saved_traj != None:
+     #         os.remove(self.model_saved_traj)
           best_eval_loss_traj = check_eval_traj
           model_path_traj = os.path.join(
               self._params['model_prefix'], 'models', 'best_epoch_traj_%04d.pt'%e)   
@@ -379,7 +379,7 @@ class ModelFn(object):
       self.write_summary(e)
       model_path = os.path.join(
           self._params['model_prefix'], 'models', 'ckpt_epoch_%04d.pt'%e)
-      if (e+1)%50 == 0:
+      if (e+1)%100 == 0:
         torch.save(self._model.state_dict(), model_path)
 
         self.update_learning_rate(e, mode='epochwise')

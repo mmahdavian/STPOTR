@@ -124,9 +124,9 @@ def compute_stats3(pred, gt, mrt):
 
 def Calc_error_h36mdataset():
       parser = argparse.ArgumentParser()
-      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/my_output28_05_25_good/config/config.json")
-      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/my_output28_05_25_good/models/best_epoch_pose_0295.pt")
-      parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
+      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/my_output2/config/config.json")
+      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/my_output2/models/best_epoch_pose_0147.pt")
+      parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/data/h3.6m/")
       args = parser.parse_args()
     
 

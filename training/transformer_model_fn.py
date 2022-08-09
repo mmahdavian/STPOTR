@@ -170,7 +170,7 @@ if __name__ == '__main__':
   parser.add_argument('--model_prefix', type=str, default='')
   parser.add_argument('--batch_size', type=int, default=16)
   parser.add_argument('--data_path', type=str)
-  parser.add_argument('--learning_rate', type=float, default=1e-5)
+  parser.add_argument('--learning_rate', type=float, default=1e-4)
   parser.add_argument('--max_epochs', type=int, default=500)
   parser.add_argument('--steps_per_epoch', type=int, default=200)
   parser.add_argument('--action', nargs='*', type=str, default=None)
@@ -190,6 +190,7 @@ if __name__ == '__main__':
   parser.add_argument('--frame_rate', type=int, default=10)
   parser.add_argument('--max_gradient_norm', type=float, default=0.1)
   parser.add_argument('--lr_step_size',type=int, default=400)
+  parser.add_argument('--gamma',type=float, default=0.1)
   parser.add_argument('--learning_rate_fn',type=str, default='step')
   parser.add_argument('--warmup_epochs', type=int, default=100)
 #  parser.add_argument('--pose_format', type=str, default='expmap')
@@ -245,7 +246,10 @@ if __name__ == '__main__':
   model_fn = POTRModelFn(
       params, train_dataset_fn, 
       eval_dataset_fn, 
-      pose_encoder_fn, pose_decoder_fn, traj_encoder_fn, traj_decoder_fn,
+      pose_encoder_fn, 
+      pose_decoder_fn, 
+      traj_encoder_fn, 
+      traj_decoder_fn,
   )
   model_fn.train()
 

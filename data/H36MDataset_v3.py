@@ -694,17 +694,6 @@ class H36MDataset(torch.utils.data.Dataset):
         'decoder_outputs_traj': decoder_outputs_traj
     }
 
-    # return {
-    #     'encoder_inputs': encoder_inputs,
-    #     'decoder_inputs': decoder_inputs,
-    #     'decoder_outputs': decoder_outputs,
-    #     'decoder_outputs_euler': decoder_outputs_euler,
-    #     'actions': action,
-    #     'action_id': self._action_ids[action],
-    #     'action_id_instance': action_id_instance,
-    #     'src_tgt_distance': distance
-    # }
-
   def __getitem__(self, idx):
     """Get item in dataset according to random sampling. `idx` is ignored."""
     if self._mode == 'train':
