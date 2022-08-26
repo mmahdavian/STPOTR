@@ -59,6 +59,7 @@ def pose_decoder_mlp(params):
   utils.weight_init(pose_decoder, init_fn_=init_fn)
   return pose_decoder
 
+
 def traj_encoder_mlp(params):
   # These two encoders should be experimented with a graph NN and
   # a prior based pose decoder using also the graph

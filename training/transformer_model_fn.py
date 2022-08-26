@@ -24,7 +24,6 @@
 
 """Implments the model function for the POTR model."""
 
-
 import numpy as np
 import os
 import sys
@@ -51,7 +50,7 @@ from data.h36m_dataset import Human36mDataset
 
 
 _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-_WEIGHT_DECAY = 0.00001
+#_WEIGHT_DECAY = 0.001
 #_WEIGHT_DECAY = 0.01
 _NSEEDS = 8
 
@@ -60,12 +59,13 @@ class POTRModelFn(seq2seq_model_fn.ModelFn):
                params,
                train_dataset_fn,
                eval_dataset_fn,
+               eval_dataset_fn_total,
                pose_encoder_fn=None,
                pose_decoder_fn=None,
                traj_encoder_fn=None,
                traj_decoder_fn=None):
     super(POTRModelFn, self).__init__(
-      params, train_dataset_fn, eval_dataset_fn, pose_encoder_fn, pose_decoder_fn, traj_encoder_fn, traj_decoder_fn)
+      params, train_dataset_fn, eval_dataset_fn,eval_dataset_fn_total, pose_encoder_fn, pose_decoder_fn, traj_encoder_fn, traj_decoder_fn)
     self._loss_fn = self.layerwise_loss_fn
 
   def smooth_l1(self, decoder_pred, decoder_gt):
@@ -138,12 +138,12 @@ class POTRModelFn(seq2seq_model_fn.ModelFn):
         traj_encoder_fn, 
         traj_decoder_fn  
     )
-
+    
   def select_optimizer(self):
     optimizer = optim.AdamW(
         self._model.parameters(), lr=self._params['learning_rate'],
         betas=(0.9, 0.999),
-        weight_decay=_WEIGHT_DECAY
+        weight_decay=self._params['weight_decay']
     )
     return optimizer
 
@@ -154,7 +154,7 @@ def dataset_factory_total(params):
     return NTURGDDataset.dataset_factory(params)
   else:
     raise ValueError('Unknown dataset {}'.format(params['dataset']))
-    
+
 
 def dataset_factory(params):
   if params['dataset'] == 'h36m_v3':
@@ -193,7 +193,6 @@ if __name__ == '__main__':
   parser.add_argument('--gamma',type=float, default=0.1)
   parser.add_argument('--learning_rate_fn',type=str, default='step')
   parser.add_argument('--warmup_epochs', type=int, default=100)
-#  parser.add_argument('--pose_format', type=str, default='expmap')
   parser.add_argument('--pose_format', type=str, default='rotmat')
   parser.add_argument('--remove_low_std', action='store_true')
   parser.add_argument('--remove_global_trans', action='store_true')
@@ -218,10 +217,14 @@ if __name__ == '__main__':
   parser.add_argument('--finetuning_ckpt', type=str, default=None)
   parser.add_argument('--pos_enc_alpha', type=float, default=10)
   parser.add_argument('--pos_enc_beta', type=float, default=500)
+  parser.add_argument('--gt_ratio', type=float, default=0)
+  parser.add_argument('--weight_decay', type=float, default=0.001)
+
   args = parser.parse_args()
   
   params = vars(args)
   train_dataset_fn, eval_dataset_fn = dataset_factory(params)
+  train_dataset_fn_total, eval_dataset_fn_total = dataset_factory_total(params)
 
   params['input_dim'] = train_dataset_fn.dataset._data_dim
   params['pose_dim'] = train_dataset_fn.dataset._pose_dim
@@ -246,12 +249,10 @@ if __name__ == '__main__':
   model_fn = POTRModelFn(
       params, train_dataset_fn, 
       eval_dataset_fn, 
+      eval_dataset_fn_total,
       pose_encoder_fn, 
       pose_decoder_fn, 
       traj_encoder_fn, 
       traj_decoder_fn,
   )
   model_fn.train()
-
-
-

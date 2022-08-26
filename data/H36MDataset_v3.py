@@ -256,8 +256,8 @@ class H36MDataset(torch.utils.data.Dataset):
         self._params['action_subset'][i]:i 
         for i in range(len(self._params['action_subset']))
     }
-
-    self._all_data,self._all_trajectory = self.load_data()
+    my_norm_stat = self.stat_calculation()
+    self._all_data,self._all_trajectory = self.load_data(my_norm_stat)
     self._data_keys = list(self._data.keys())
     print('[INFO] (H36MDataset) ', self._data_keys)
 
@@ -716,8 +716,127 @@ class H36MDataset(torch.utils.data.Dataset):
                            if a in self._action_defs_gt]
 
     logging.info("Loading actions: {}".format(self._action_defs))
+
+  def stat_calculation(self):
+    """Loads all the H3.6M dataset into memory."""
+    self._data_stat = {} # {id_:{} for id_ in self._train_ids}
+    self._data_srnn_stat = {} # {id_:{} for id_ in self._train_ids}
+    self._traj_stat = {} # {id_:{} for id_ in self._train_ids}
+    self._traj_srnn_stat = {} # {id_:{} for id_ in self._train_ids}
+
+    self.load_action_defs()
+    self._n_actions = len(self._action_defs)
+    self.joints_left=[3, 4, 5, 10, 11, 12]
+    self.joints_right=[0, 1, 2, 13, 14, 15]
+    self._data_ids_stat = [5,1,6,7,8,9,11]
+
+
+    file_prefix = "{}/S{}/{}_{}.npy"
+    dataset_path = os.path.join(self._params['data_path'], 'dataset')
+
+    all_dataset = []
+    all_dataset_ = []
+    all_traj=[]
+    all_traj_=[]
+    data_address = '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/data_3d_h36m.npz'
+    my_data = np.load(data_address, allow_pickle=True)['positions_3d'].item()
+    dataset = Human36mDataset(data_address)       
+
+    for s_id in self._data_ids_stat:
+        tot_action_sequence = my_data['S'+str(s_id)]
+        self.my_keys = tot_action_sequence.keys()
+        if s_id==11:
+            i=4
+        else:
+            i=0
+        for action in sorted(self.my_keys):
+            action_sequence = tot_action_sequence[action]
+            n_frames,njoints, dims = action_sequence.shape
+            frq=self._params['frame_rate']
+            even_idx = range(0, n_frames, int(50//frq))
+            action_sequence = action_sequence[even_idx, :]
+            anim = dataset['S'+str(s_id)][action]
+            action_sequence_main = np.copy(action_sequence)
+            
+            for cam in anim['cameras']:
+                correct_action = sorted(self._action_defs)[int(i/8)]
+                sact = i%8+1
+                action_sequence = world_to_camera(action_sequence_main, R=cam['orientation'], t=cam['translation'])
+                traj_sequence = action_sequence[:,0]
+                action_sequence = action_sequence - traj_sequence.reshape(-1,1,3)
+                all_dataset_.append(action_sequence)
+                all_traj_.append(traj_sequence)
+                traj_sequence_ = traj_sequence
+                
+                action_sequence_ = action_sequence.reshape(-1,96)[:, 3:]
+                action_sequence = self.preprocess_sequence(action_sequence_)
+
+                entry_key = (s_id, correct_action,sact)
+                self._data_stat[entry_key] = action_sequence
+                self._data_srnn_stat[entry_key] = action_sequence_
+                all_dataset.append(action_sequence)
+
+                self._traj_stat[entry_key] = traj_sequence
+                self._traj_srnn_stat[entry_key] = traj_sequence_
+                all_traj.append(traj_sequence)
+                action_sequence_copy = np.copy(action_sequence)
+                traj_sequence_copy = np.copy(traj_sequence)
+                augment = True
+                if augment:
+                    ## augment with respect to X
+                    entry_key = (s_id, correct_action,sact+100)
+                    action_sequence = np.copy(action_sequence_copy).reshape(-1,self._params['n_joints'],3)
+                    action_sequence[:,:,0] *= -1
+                    action_sequence[:,self.joints_left+self.joints_right] = action_sequence[:,self.joints_right+self.joints_left] 
+                    action_sequence = action_sequence.reshape(-1,self._params['n_joints']*3)
+                    self._data_stat[entry_key] = action_sequence
+                    all_dataset.append(action_sequence)
+                    traj_sequence = np.copy(traj_sequence_copy)
+                    traj_sequence[:,0] *= -1
+                    self._traj_stat[entry_key] = traj_sequence
+                    all_traj.append(traj_sequence)
+                    
+                    ## augment with respect to Z
+                    entry_key = (s_id, correct_action,sact+200)
+                    action_sequence = np.copy(action_sequence_copy).reshape(-1,self._params['n_joints'],3)
+                    action_sequence[:,:,2] *= -1
+                    action_sequence[:,self.joints_left+self.joints_right] = action_sequence[:,self.joints_right+self.joints_left] 
+                    action_sequence = action_sequence.reshape(-1,self._params['n_joints']*3)
+                    self._data_stat[entry_key] = action_sequence
+                    all_dataset.append(action_sequence)
+                    traj_sequence = np.copy(traj_sequence_copy)
+                    traj_sequence[:,2] *= -1
+                    self._traj_stat[entry_key] = traj_sequence
+                    all_traj.append(traj_sequence)
+                    
+                    ## augment with respect to XZ
+                    entry_key = (s_id, correct_action,sact+300)
+                    action_sequence = np.copy(action_sequence_copy).reshape(-1,self._params['n_joints'],3)
+                    action_sequence[:,:,0] *= -1
+                    action_sequence[:,:,2] *= -1
+                    action_sequence[:,self.joints_left+self.joints_right] = action_sequence[:,self.joints_right+self.joints_left] 
+                    action_sequence = action_sequence.reshape(-1,self._params['n_joints']*3)
+                    self._data_stat[entry_key] = action_sequence
+                    all_dataset.append(action_sequence)
+                    traj_sequence = np.copy(traj_sequence_copy)
+                    traj_sequence[:,0] *= -1
+                    traj_sequence[:,2] *= -1
+                    self._traj_stat[entry_key] = traj_sequence
+                    all_traj.append(traj_sequence)
+                i+=1
+                
+
+    all_dataset = np.concatenate(all_dataset, axis=0)
+    self._all_dataset_stat = np.concatenate(all_dataset_, axis=0)
+    all_traj = np.concatenate(all_traj,axis=0)
+    self._all_traj_stat_stat = np.concatenate(all_traj_,axis=0)
     
-  def load_data(self):
+    print('[INFO] ({}) All dataset shape: {}'.format(self.__class__.__name__, all_dataset.shape))
+    # compute normalization statistics only when in training phase
+    return self.compute_norm_stats(all_dataset,all_traj)
+      
+      
+  def load_data(self,my_norm_stat):
     """Loads all the H3.6M dataset into memory."""
     self._data = {} # {id_:{} for id_ in self._train_ids}
     self._data_srnn = {} # {id_:{} for id_ in self._train_ids}
@@ -726,6 +845,10 @@ class H36MDataset(torch.utils.data.Dataset):
 
     self.load_action_defs()
     self._n_actions = len(self._action_defs)
+    self.joints_left=[3, 4, 5, 10, 11, 12]
+    self.joints_right=[0, 1, 2, 13, 14, 15]
+
+
     file_prefix = "{}/S{}/{}_{}.npy"
     dataset_path = os.path.join(self._params['data_path'], 'dataset')
 
@@ -740,7 +863,6 @@ class H36MDataset(torch.utils.data.Dataset):
     for s_id in self._data_ids:
         tot_action_sequence = my_data['S'+str(s_id)]
         self.my_keys = tot_action_sequence.keys()
-
         if s_id==11:
             i=4
         else:
@@ -753,7 +875,7 @@ class H36MDataset(torch.utils.data.Dataset):
             action_sequence = action_sequence[even_idx, :]
             anim = dataset['S'+str(s_id)][action]
             action_sequence_main = np.copy(action_sequence)
-                
+            
             for cam in anim['cameras']:
                 correct_action = sorted(self._action_defs)[int(i/8)]
                 sact = i%8+1
@@ -766,8 +888,7 @@ class H36MDataset(torch.utils.data.Dataset):
                 
                 action_sequence_ = action_sequence.reshape(-1,96)[:, 3:]
                 action_sequence = self.preprocess_sequence(action_sequence_)
-   #             joints_left=[3, 4, 5, 10, 11, 14]
-   #             joints_right=[0, 1, 2, 13, 14, 15]
+
                 entry_key = (s_id, correct_action,sact)
                 self._data[entry_key] = action_sequence
                 self._data_srnn[entry_key] = action_sequence_
@@ -776,9 +897,52 @@ class H36MDataset(torch.utils.data.Dataset):
                 self._traj[entry_key] = traj_sequence
                 self._traj_srnn[entry_key] = traj_sequence_
                 all_traj.append(traj_sequence)
-                
+                action_sequence_copy = np.copy(action_sequence)
+                traj_sequence_copy = np.copy(traj_sequence)
+                augment = True
+                if augment:
+                    ## augment with respect to X
+                    entry_key = (s_id, correct_action,sact+100)
+                    action_sequence = np.copy(action_sequence_copy).reshape(-1,self._params['n_joints'],3)
+                    action_sequence[:,:,0] *= -1
+                    action_sequence[:,self.joints_left+self.joints_right] = action_sequence[:,self.joints_right+self.joints_left] 
+                    action_sequence = action_sequence.reshape(-1,self._params['n_joints']*3)
+                    self._data[entry_key] = action_sequence
+                    all_dataset.append(action_sequence)
+                    traj_sequence = np.copy(traj_sequence_copy)
+                    traj_sequence[:,0] *= -1
+                    self._traj[entry_key] = traj_sequence
+                    all_traj.append(traj_sequence)
+                    
+                    ## augment with respect to Z
+                    entry_key = (s_id, correct_action,sact+200)
+                    action_sequence = np.copy(action_sequence_copy).reshape(-1,self._params['n_joints'],3)
+                    action_sequence[:,:,2] *= -1
+                    action_sequence[:,self.joints_left+self.joints_right] = action_sequence[:,self.joints_right+self.joints_left] 
+                    action_sequence = action_sequence.reshape(-1,self._params['n_joints']*3)
+                    self._data[entry_key] = action_sequence
+                    all_dataset.append(action_sequence)
+                    traj_sequence = np.copy(traj_sequence_copy)
+                    traj_sequence[:,2] *= -1
+                    self._traj[entry_key] = traj_sequence
+                    all_traj.append(traj_sequence)
+                    
+                    ## augment with respect to XZ
+                    entry_key = (s_id, correct_action,sact+300)
+                    action_sequence = np.copy(action_sequence_copy).reshape(-1,self._params['n_joints'],3)
+                    action_sequence[:,:,0] *= -1
+                    action_sequence[:,:,2] *= -1
+                    action_sequence[:,self.joints_left+self.joints_right] = action_sequence[:,self.joints_right+self.joints_left] 
+                    action_sequence = action_sequence.reshape(-1,self._params['n_joints']*3)
+                    self._data[entry_key] = action_sequence
+                    all_dataset.append(action_sequence)
+                    traj_sequence = np.copy(traj_sequence_copy)
+                    traj_sequence[:,0] *= -1
+                    traj_sequence[:,2] *= -1
+                    self._traj[entry_key] = traj_sequence
+                    all_traj.append(traj_sequence)
                 i+=1
-
+                
     all_dataset = np.concatenate(all_dataset, axis=0)
     self._all_dataset = np.concatenate(all_dataset_, axis=0)
     all_traj = np.concatenate(all_traj,axis=0)
@@ -786,8 +950,15 @@ class H36MDataset(torch.utils.data.Dataset):
     
     print('[INFO] ({}) All dataset shape: {}'.format(self.__class__.__name__, all_dataset.shape))
     # compute normalization statistics only when in training phase
-    if self._mode == 'train' or self._mode == 'eval_total':
-      self.compute_norm_stats(all_dataset,all_traj)
+#    if self._mode == 'train' or self._mode == 'eval_total':
+#      self.compute_norm_stats(all_dataset,all_traj)
+
+    self._norm_stats['mean'] = my_norm_stat[0]
+    self._norm_stats['std'] = my_norm_stat[1]
+    
+    self._norm_stats['mean_traj'] = my_norm_stat[2]
+    self._norm_stats['std_traj'] = my_norm_stat[3]
+    
     self.normalize_data()
 
     self._pose_dim = self._norm_stats['std'].shape[-1]
@@ -798,7 +969,15 @@ class H36MDataset(torch.utils.data.Dataset):
         thisname, self._pose_dim, self._data_dim))
 
     return all_dataset,all_traj
-
+# =============================================================================
+#                     import matplotlib.pyplot as plt
+#                     fig = plt.figure()
+#                     ax = fig.add_subplot(111, projection='3d')          
+#                     for j in range(0,16):
+#                         ax.plot(action_sequence[0,j,0],action_sequence[0,j,1],action_sequence[0,j,2],'*')
+#                     plt.show()
+# =============================================================================
+                    
   def normalize_data(self):
     """Data normalization with mean and std removing dimensions with low std."""
     for k in self._data.keys():
@@ -831,6 +1010,7 @@ class H36MDataset(torch.utils.data.Dataset):
     self._norm_stats['mean_traj'] = mean_traj.ravel()
     self._norm_stats['std_traj'] = std_traj.ravel()
     
+    return mean.ravel(),std.ravel(),mean_traj.ravel(),std_traj.ravel()
     # stats are already comptued for major joints
     # self._norm_stats['std_used'] = std[_MAJOR_JOINTS]
     # self._norm_stats['mean_used'] = mean[_MAJOR_JOINTS]

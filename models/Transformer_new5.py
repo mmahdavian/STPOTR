@@ -122,14 +122,19 @@ class Transformer(nn.Module):
     
     if self._query_selection:
       self._position_predictor = nn.Linear(self._model_dim, self._tgt_seq_len)
-
+      
+    self._self_attn = nn.MultiheadAttention(model_dim, num_heads, dropout)
     self._self_attn_traj = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
     self._self_attn_end = nn.MultiheadAttention(model_dim, num_heads, dropout)
     self._self_attn_end_traj = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
 
     self._traj_pos_linear = nn.Linear(self._model_dim, self._model_dim_traj)
+    self._pos_traj_linear = nn.Linear(self._model_dim_traj, self._model_dim)
     self.qkv = nn.Linear(self._model_dim, 3*self._model_dim)
     self.qkv_traj_end = nn.Linear(self._model_dim_traj, 3*self._model_dim_traj)
+    self.q = nn.Linear(self._model_dim, self._model_dim)
+    self.k = nn.Linear(self._model_dim, self._model_dim)
+    self.v = nn.Linear(self._model_dim, self._model_dim)
     self.q_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
     self.k_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
     self.v_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
@@ -204,16 +209,7 @@ class Transformer(nn.Module):
       indices, prob_matrix = self.process_index_selection(memory)
       tgt_plain, target_seq = query_selection_fn(indices)
     
-    out_attn, out_weights = self._decoder(
-        target_seq,
-        memory,
-        decoder_position_encodings,
-        query_embedding=query_embedding,
-        mask_target_padding=mask_target_padding,
-        mask_look_ahead=mask_look_ahead,
-        get_attn_weights=get_attn_weights
-    )
-    
+    ##############
     memory_copy = self._traj_pos_linear(memory)
 
     query = self.q_traj(memory_traj)
@@ -226,8 +222,32 @@ class Transformer(nn.Module):
         value, 
         need_weights=True
     )
+    ############
+    memory_traj_copy = self._pos_traj_linear(memory_traj)
     
+    query2 = self.q(memory)
+    key2 = self.k(memory_traj_copy)
+    value2 = self.v(memory_traj_copy)
+    
+    attn_output_pose, attn_weights_pose = self._self_attn(
+        query2, 
+        key2, 
+        value2, 
+        need_weights=True
+    )    
+    memory = memory.clone() + attn_output_pose
     memory_traj = memory_traj.clone() + attn_output_traj_pose
+    
+    ###########
+    out_attn, out_weights = self._decoder(
+        target_seq,
+        memory,
+        decoder_position_encodings,
+        query_embedding=query_embedding,
+        mask_target_padding=mask_target_padding,
+        mask_look_ahead=mask_look_ahead,
+        get_attn_weights=get_attn_weights
+    )
     
     out_attn_traj, out_weights_traj = self._decoder_traj(
         target_seq_traj,
@@ -239,6 +259,7 @@ class Transformer(nn.Module):
         get_attn_weights=get_attn_weights
     )
     
+    #############
     output_attn = []
     output_attn_traj=[]
     
@@ -255,7 +276,6 @@ class Transformer(nn.Module):
         end_attn_traj, end_attn_traj_weights = self._self_attn_end_traj(q_end_traj,k_end_traj,v_end_traj,need_weights=True)
         output_attn_traj.append(end_attn_traj[-self._tgt_seq_len:])
         
-
     out_weights_ = None
     enc_weights_ = None
     prob_matrix_ = None

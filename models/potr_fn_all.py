@@ -124,37 +124,47 @@ def compute_stats3(pred, gt, mrt):
 
 def Calc_error_h36mdataset():
       parser = argparse.ArgumentParser()
-      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/config/config.json")
-      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/models/best_epoch_fde_traj_0117.pt")
-      parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
-      args = parser.parse_args()
+      address = "/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/models/"
+      adrs_list = os.listdir(address)
+      total_result=[]
 
-      seq_shape = (15, 8, 25, 63)    
-      seq_shape_traj = (15, 8, 25, 3)
+      for adrs in adrs_list:
+        print("heeeeeeeeeeeeeeeeeeeeeeeeey")  
+        print(adrs)
+        parser = argparse.ArgumentParser()
+        parser.add_argument('--config_file', type=str,default=address[:len(address)-7]+"config/config.json")
+        parser.add_argument('--model_file', type=str,default=address+adrs)
+        parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
+        args = parser.parse_args()
+
+        seq_shape = (15, 8, 25, 63)    
+        seq_shape_traj = (15, 8, 25, 3)
       
-      params = json.load(open(args.config_file))
-      if args.data_path is not None:
-        params['data_path'] = args.data_path
-
-      args.data_path = params['data_path']
-      train_dataset_fn, eval_dataset_fn = tr_fn.dataset_factory_total(params)
+        params = json.load(open(args.config_file))
+        if args.data_path is not None:
+          params['data_path'] = args.data_path
+        
+        seed_num = 8
+        params['eval_num_seeds'] = seed_num 
+        args.data_path = params['data_path']
+        train_dataset_fn, eval_dataset_fn = tr_fn.dataset_factory_total(params)
     
-      pose_encoder_fn, pose_decoder_fn = \
+        pose_encoder_fn, pose_decoder_fn = \
           PoseEncoderDecoder.select_pose_encoder_decoder_fn(params)
           
-      traj_encoder_fn, traj_decoder_fn = \
+        traj_encoder_fn, traj_decoder_fn = \
           PoseEncoderDecoder.select_traj_encoder_decoder_fn(params)
                     
     
-      for k,v in params.items():
-        print('[INFO] (POTRFn@main) {}: {}'.format(k, v))
+        for k,v in params.items():
+          print('[INFO] (POTRFn@main) {}: {}'.format(k, v))
     
     
       # ids of most common actions in H36M
  #     actions = [('Walking', 12),  ('Eating', 2),  ('Smoking', 9),  
  #         ('Discussion', 1), ('Directions', 0)]
       
-      model = PoseTransformer.model_factory(
+        model = PoseTransformer.model_factory(
             params, 
             pose_encoder_fn, 
             pose_decoder_fn,
@@ -162,76 +172,81 @@ def Calc_error_h36mdataset():
             traj_decoder_fn 
         )
       
-      model.load_state_dict(torch.load(args.model_file, map_location=_DEVICE))
-      model.to(_DEVICE)
-      model.eval()
+        model.load_state_dict(torch.load(args.model_file, map_location=_DEVICE))
+        model.to(_DEVICE)
+        model.eval()
               
               
-      _ALL_ACTIONS = [("Directions",0),( "Discussion",1),( "Eating",2),( "Greeting",3), ("Phoning",4),
+        _ALL_ACTIONS = [("Directions",0),( "Discussion",1),( "Eating",2),( "Greeting",3), ("Phoning",4),
                       ("Photo",5),("Posing",6), ("Purchases",7), ("Sitting",8), ("SittingDown",9), ("Smoking",10),
                       ("Waiting",11), ("Walking",12), ("WalkDog",13), ("WalkTogether",14)]
            
-      my_counter = 0
-      total_errors = 0 
-      total_ade = 0
-      total_fde = 0
-      total_errors_traj = 0 
-      total_ade_traj = 0
-      total_fde_traj = 0     
+        my_counter = 0
+        total_errors = 0 
+        total_ade = 0
+        total_fde = 0
+        total_errors_traj = 0 
+        total_ade_traj = 0
+        total_fde_traj = 0     
 
-      sample = next(iter(eval_dataset_fn))
-#      print(sample['decoder_outputs_action'][:].shape) 
+        sample = next(iter(eval_dataset_fn))
+#        print(sample['decoder_outputs_action'][:].shape) 
 
-      with torch.no_grad():
-#        for i in range(len(_ALL_ACTIONS)):
-        for i in range(1):
+        with torch.no_grad():
+#          for i in range(len(_ALL_ACTIONS)):
+          for i in range(1):
 
-  #        action, acidx = _ALL_ACTIONS[i]
-  #        if action=="Walking":
-  #            print()
-          enc_inputs = sample['encoder_inputs'].to(_DEVICE)
-          dec_inputs = sample['decoder_inputs'].to(_DEVICE)
-          sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
-          sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
-          sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
+  #          action, acidx = _ALL_ACTIONS[i]
+  #          if action=="Walking":
+  #              print()
+            enc_inputs = sample['encoder_inputs'].to(_DEVICE)
+            dec_inputs = sample['decoder_inputs'].to(_DEVICE)
+            sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
+            sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
+            sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
           
-          enc_inputs_traj = sample['encoder_inputs_traj'].to(_DEVICE)
-          dec_inputs_traj = sample['decoder_inputs_traj'].to(_DEVICE)
-        
+            enc_inputs_traj = sample['encoder_inputs_traj'].to(_DEVICE)
+            dec_inputs_traj = sample['decoder_inputs_traj'].to(_DEVICE)
+          
+#            gts = np.squeeze(sample['decoder_outputs'].cpu().numpy())[seed_num*acidx:seed_num*acidx+seed_num]
+#            ins = np.squeeze(sample['encoder_inputs'].cpu().numpy())[seed_num*acidx:seed_num*acidx+seed_num]
+#            gts_traj = np.squeeze(sample['decoder_outputs_traj'].cpu().numpy())[seed_num*acidx:seed_num*acidx+seed_num]
+#            ins_traj = np.squeeze(sample['encoder_inputs_traj'].cpu().numpy())[seed_num*acidx:seed_num*acidx+seed_num]
+#            print(gts.shape)
 
-          gts = np.squeeze(sample['decoder_outputs'].cpu().numpy())
-          ins = np.squeeze(sample['encoder_inputs'].cpu().numpy())
-          gts_traj = np.squeeze(sample['decoder_outputs_traj'].cpu().numpy())
-          ins_traj = np.squeeze(sample['encoder_inputs_traj'].cpu().numpy())
-          print(gts.shape)
+            gts = np.squeeze(sample['decoder_outputs'].cpu().numpy())
+            ins = np.squeeze(sample['encoder_inputs'].cpu().numpy())
+            gts_traj = np.squeeze(sample['decoder_outputs_traj'].cpu().numpy())
+            ins_traj = np.squeeze(sample['encoder_inputs_traj'].cpu().numpy())
+            print(gts.shape)
 
-          ins = eval_dataset_fn.dataset.unnormalize_mine(ins)
-          ins_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(ins_traj)
+            ins = eval_dataset_fn.dataset.unnormalize_mine(ins)
+            ins_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(ins_traj)
       
-          gts = eval_dataset_fn.dataset.unnormalize_mine(gts)
-          gts_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(gts_traj)
+            gts = eval_dataset_fn.dataset.unnormalize_mine(gts)
+            gts_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(gts_traj)
        
-          enc_inputs = torch.squeeze(enc_inputs)
-          dec_inputs = torch.squeeze(dec_inputs)
+            enc_inputs = torch.squeeze(enc_inputs)
+            dec_inputs = torch.squeeze(dec_inputs)
 
-          enc_inputs_traj = torch.squeeze(enc_inputs_traj)
-          dec_inputs_traj = torch.squeeze(dec_inputs_traj)
+            enc_inputs_traj = torch.squeeze(enc_inputs_traj)
+            dec_inputs_traj = torch.squeeze(dec_inputs_traj)
           
 # =============================================================================
-#           t1 = time.time()
-#           prediction = model(
+#             t1 = time.time()
+#             prediction = model(
 #               enc_inputs[44].reshape(1,5,48), 
 #               dec_inputs[44].reshape(1,20,48), 
 #               enc_inputs_traj[44].reshape(1,5,3), 
 #               dec_inputs_traj[44].reshape(1,20,3), 
 #               get_attn_weights=True
-#           )
+#             )
 #           
-#           t2=time.time()
-#           print(t2-t1)
+#             t2=time.time()
+#             print(t2-t1)
 # =============================================================================
 
-#          prediction = model(
+#            prediction = model(
 #              enc_inputs, 
 #              dec_inputs, 
 #              enc_inputs_traj, 
@@ -239,79 +254,82 @@ def Calc_error_h36mdataset():
 #              gts,
 #              gts_traj,
 #              get_attn_weights=True
-#          )
-          prediction = model(
+#            )
+            prediction = model(
               enc_inputs,
               dec_inputs,
               enc_inputs_traj,
               dec_inputs_traj,
               get_attn_weights=True
-          )
+            )
 
 
-          classes = prediction[1]
-          traj_prediction = prediction[-1]
-          traj_prediction = traj_prediction[-1].cpu().numpy()
+            classes = prediction[1]
+            traj_prediction = prediction[-1]
+#            traj_prediction = traj_prediction[-1][seed_num*acidx:seed_num*acidx+seed_num].cpu().numpy()
+            traj_prediction = traj_prediction[-1].cpu().numpy()
 
-          prediction = prediction[0]
-          prediction = prediction[-1].cpu().numpy()
+            prediction = prediction[0]
+#            prediction = prediction[-1][seed_num*acidx:seed_num*acidx+seed_num].cpu().numpy()
+            prediction = prediction[-1].cpu().numpy()
 
-          preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
-          preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
+            preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
+            preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
           
-          maximum_estimation_time = params['target_seq_len']/params['frame_rate']
+            maximum_estimation_time = params['target_seq_len']/params['frame_rate']
           
-          errors = compute_stats3(preds,gts,maximum_estimation_time)
-          ADE = compute_ade2(preds,gts)
-          FDE = compute_fde2(preds,gts)
-          total_errors += np.array(errors)      
-          total_ade += ADE
-          total_fde += FDE  
+            errors = compute_stats3(preds,gts,maximum_estimation_time)
+            ADE = compute_ade2(preds,gts)
+            FDE = compute_fde2(preds,gts)
+            total_errors += np.array(errors)      
+            total_ade += ADE
+            total_fde += FDE  
           
-          errors_traj = compute_stats3(preds_traj,gts_traj,maximum_estimation_time)
-          ADE_traj = compute_ade2(preds_traj,gts_traj)
-          FDE_traj = compute_fde2(preds_traj,gts_traj)
-          total_errors_traj += np.array(errors_traj)      
-          total_ade_traj += ADE_traj
-          total_fde_traj += FDE_traj
-          
-          print(ADE,FDE,ADE_traj,FDE_traj)
+            errors_traj = compute_stats3(preds_traj,gts_traj,maximum_estimation_time)
+            ADE_traj = compute_ade2(preds_traj,gts_traj)
+            FDE_traj = compute_fde2(preds_traj,gts_traj)
+            total_errors_traj += np.array(errors_traj)      
+            total_ade_traj += ADE_traj
+            total_fde_traj += FDE_traj
+            total_result.append([adrs,ADE,FDE,ADE_traj,FDE_traj]) 
+            print(adrs,ADE,FDE,ADE_traj,FDE_traj)
 
-          my_counter +=1
+            my_counter +=1
               
-      maximum_time = params['target_seq_len']/params['frame_rate']
+        maximum_time = params['target_seq_len']/params['frame_rate']
       
-      total_errors = total_errors/my_counter
-      dt = maximum_time/params['target_seq_len']
+        total_errors = total_errors/my_counter
+        dt = maximum_time/params['target_seq_len']
       
-      print("result of evaluation on data")
+        print("result of evaluation on data")
     
-      for i in range(params['target_seq_len']):
-          print(str((i+1)*dt)[:5]+"  ", end=" ")
-      print(" ")
-      for i in range(params['target_seq_len']):
-          print(str(total_errors[i])[:5], end=" ")
-      print(" ")
+        for i in range(params['target_seq_len']):
+            print(str((i+1)*dt)[:5]+"  ", end=" ")
+        print(" ")
+        for i in range(params['target_seq_len']):
+            print(str(total_errors[i])[:5], end=" ")
+        print(" ")
       
       
-      avg_ADE = total_ade / my_counter
-      avg_FDE = total_fde / my_counter
-      print(avg_ADE,avg_FDE)
-      print()
+        avg_ADE = total_ade / my_counter
+        avg_FDE = total_fde / my_counter
+        print(avg_ADE,avg_FDE)
+        print()
 
-      total_errors_traj = total_errors_traj/my_counter
-      print("result of evaluation for hip traj on data")
+        total_errors_traj = total_errors_traj/my_counter
+        print("result of evaluation for hip traj on data")
     
-      for i in range(params['target_seq_len']):
-          print(str((i+1)*dt)[:5]+"  ", end=" ")
-      print(" ")
-      for i in range(params['target_seq_len']):
-          print(str(total_errors_traj[i])[:5], end=" ")
-      print(" ")
+        for i in range(params['target_seq_len']):
+            print(str((i+1)*dt)[:5]+"  ", end=" ")
+        print(" ")
+        for i in range(params['target_seq_len']):
+            print(str(total_errors_traj[i])[:5], end=" ")
+        print(" ")
       
-      avg_ADE_traj = total_ade_traj / my_counter
-      avg_FDE_traj = total_fde_traj / my_counter
-      print(avg_ADE_traj,avg_FDE_traj)
+        avg_ADE_traj = total_ade_traj / my_counter
+        avg_FDE_traj = total_fde_traj / my_counter
+        print(avg_ADE_traj,avg_FDE_traj)
+      print(total_result)
       return 0
 
 #      H36MDataset_v3.visualize_sequence(preds, args.data_path, 
@@ -320,8 +338,8 @@ def Calc_error_h36mdataset():
 def visualize_h36mdataset():
 
       parser = argparse.ArgumentParser()
-      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/config/config.json")
-      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/models/best_epoch_fde_traj_0117.pt")
+      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new25/config/config.json")
+      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new25/models/best_epoch_traj_0054.pt")
       parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
       args = parser.parse_args()
     
@@ -448,7 +466,7 @@ def visualize_h36mdataset():
 #          trajectories.append(traj[:,[0,1]])
           dx = 0
           dy = 0
-          for i in range(19,20):
+          for i in range(20):
               pos = preds[batch][i].reshape(16,3)
               pos = np.concatenate((np.array([[0,0,0]]),pos),axis=0) + preds_traj[batch][i]
      #         dx += 0.4
@@ -472,7 +490,7 @@ def visualize_h36mdataset():
 #          trajectories.append(traj[:,[0,1]])
           dx = 0
           dy = 0
-          for i in range(19,20):
+          for i in range(20):
               pos = gts[batch][i].reshape(16,3)
               pos = np.concatenate((np.array([[0,0,0]]),pos),axis=0) + gts_traj[batch][i]
               #+ np.array([dx,0,dy])
@@ -770,8 +788,8 @@ def visualize_attn_weights():
 
 
 if __name__ == '__main__':
-   visualize_h36mdataset()
-#   Calc_error_h36mdataset()
+#   visualize_h36mdataset()
+   Calc_error_h36mdataset()
 #  visualize_attn_weights()
   #compute_test_mAP_nturgbd()
 

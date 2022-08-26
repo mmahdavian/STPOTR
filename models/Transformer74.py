@@ -123,16 +123,9 @@ class Transformer(nn.Module):
     if self._query_selection:
       self._position_predictor = nn.Linear(self._model_dim, self._tgt_seq_len)
 
-    self._self_attn_traj = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
-    self._self_attn_end = nn.MultiheadAttention(model_dim, num_heads, dropout)
-    self._self_attn_end_traj = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
-
+    self._self_attn = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
     self._traj_pos_linear = nn.Linear(self._model_dim, self._model_dim_traj)
-    self.qkv = nn.Linear(self._model_dim, 3*self._model_dim)
-    self.qkv_traj_end = nn.Linear(self._model_dim_traj, 3*self._model_dim_traj)
-    self.q_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
-    self.k_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
-    self.v_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
+    self._traj_attn_linear = nn.Linear(self._model_dim_traj*3, self._model_dim_traj)
 
 
   def process_index_selection(self, self_attn, one_to_one_selection=False):
@@ -187,7 +180,6 @@ class Transformer(nn.Module):
               mask_look_ahead=None,
               get_attn_weights=False,
               query_selection_fn=None):
-      
     if self._use_query_embedding:
       bs = source_seq.size()[1]
       query_embedding = query_embedding.unsqueeze(1).repeat(1, bs, 1)
@@ -215,19 +207,19 @@ class Transformer(nn.Module):
     )
     
     memory_copy = self._traj_pos_linear(memory)
-
-    query = self.q_traj(memory_traj)
-    key = self.k_traj(memory_copy)
-    value = self.v_traj(memory_copy)
+    query = memory_traj
+    key = memory_copy
+    value = memory_copy
     
-    attn_output_traj_pose, attn_weights_traj_pose = self._self_attn_traj(
+    attn_output_traj_pose, attn_weights_traj_pose = self._self_attn(
         query, 
         key, 
         value, 
         need_weights=True
     )
-    
-    memory_traj = memory_traj.clone() + attn_output_traj_pose
+    memory_traj = torch.cat((memory_copy.clone(),memory_traj.clone(),attn_output_traj_pose), dim=2)
+    memory_traj = self._traj_attn_linear(memory_traj)
+#    memory_traj = memory_traj.clone() + attn_output_traj_pose
     
     out_attn_traj, out_weights_traj = self._decoder_traj(
         target_seq_traj,
@@ -239,33 +231,14 @@ class Transformer(nn.Module):
         get_attn_weights=get_attn_weights
     )
     
-    output_attn = []
-    output_attn_traj=[]
-    
-    for i in range(len(out_attn)):
-        enc_dec_tot = torch.concat((memory,out_attn[i]),dim=0) 
-        qkv_end = self.qkv(enc_dec_tot)
-        q_end,k_end,v_end = qkv_end.chunk(3,dim=-1)
-        end_attn, end_attn_weights = self._self_attn_end(q_end,k_end,v_end,need_weights=True)
-        output_attn.append(end_attn[-self._tgt_seq_len:])
-        
-        enc_dec_tot_traj = torch.concat((memory_traj,out_attn_traj[i]),dim=0) 
-        qkv_end_traj = self.qkv_traj_end(enc_dec_tot_traj)
-        q_end_traj,k_end_traj,v_end_traj = qkv_end_traj.chunk(3,dim=-1)
-        end_attn_traj, end_attn_traj_weights = self._self_attn_end_traj(q_end_traj,k_end_traj,v_end_traj,need_weights=True)
-        output_attn_traj.append(end_attn_traj[-self._tgt_seq_len:])
-        
 
     out_weights_ = None
     enc_weights_ = None
     prob_matrix_ = None
-    
     if get_attn_weights:
       out_weights_, enc_weights_ = out_weights, enc_weights
 
     if self._query_selection:
       prob_matrix_ =  prob_matrix
 
-    return output_attn, memory, out_weights_, enc_weights_, (tgt_plain, prob_matrix_),output_attn_traj,memory_traj
-
-#    return out_attn, memory, out_weights_, enc_weights_, (tgt_plain, prob_matrix_),out_attn_traj,memory_traj
+    return out_attn, memory, out_weights_, enc_weights_, (tgt_plain, prob_matrix_),out_attn_traj,memory_traj

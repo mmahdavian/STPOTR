@@ -124,17 +124,22 @@ class Transformer(nn.Module):
       self._position_predictor = nn.Linear(self._model_dim, self._tgt_seq_len)
 
     self._self_attn_traj = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
-    self._self_attn_end = nn.MultiheadAttention(model_dim, num_heads, dropout)
-    self._self_attn_end_traj = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
-
     self._traj_pos_linear = nn.Linear(self._model_dim, self._model_dim_traj)
-    self.qkv = nn.Linear(self._model_dim, 3*self._model_dim)
-    self.qkv_traj_end = nn.Linear(self._model_dim_traj, 3*self._model_dim_traj)
-    self.q_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
-    self.k_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
-    self.v_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
+    self._pos_traj_linear = nn.Linear(self._model_dim_traj, self._model_dim)
+####
+    self._self_attn = nn.MultiheadAttention(model_dim, num_heads, dropout)
+    self._relu = nn.ReLU()
+    self._dropout_layer = nn.Dropout(self._dropout)
+    
+    self._relu = nn.ReLU()
+    self._dropout_layer = nn.Dropout(self._dropout)
 
-
+    self._linear1 = nn.Linear(model_dim_traj, self._dim_ffn)
+    self._linear2 = nn.Linear(self._dim_ffn, self._model_dim_traj)
+    self._norm1 = nn.LayerNorm(model_dim, eps=1e-5)
+    self._norm2 = nn.LayerNorm(model_dim_traj, eps=1e-5)
+    
+    
   def process_index_selection(self, self_attn, one_to_one_selection=False):
     """Selection of query elments using position predictor from encoder memory.
 
@@ -172,6 +177,25 @@ class Transformer(nn.Module):
 
     return indices, soft_matrix 
 
+  def pos_traj_attention(self,query,key,value):
+      
+      attn_output_traj_pose, attn_weights_traj_pose = self._self_attn_traj(
+          query, 
+          key, 
+          value, 
+          need_weights=True
+      )
+      
+      norm_attn_ = self._dropout_layer(attn_output_traj_pose)
+      norm_attn = self._norm2(norm_attn_)
+      output = self._linear1(norm_attn)
+      output = self._relu(output)
+      output = self._dropout_layer(output)
+      output = self._linear2(output)
+      output = self._dropout_layer(output) + norm_attn_
+      
+      return output , attn_weights_traj_pose
+  
   def forward(self,
               source_seq,
               target_seq,
@@ -187,7 +211,6 @@ class Transformer(nn.Module):
               mask_look_ahead=None,
               get_attn_weights=False,
               query_selection_fn=None):
-      
     if self._use_query_embedding:
       bs = source_seq.size()[1]
       query_embedding = query_embedding.unsqueeze(1).repeat(1, bs, 1)
@@ -214,18 +237,14 @@ class Transformer(nn.Module):
         get_attn_weights=get_attn_weights
     )
     
-    memory_copy = self._traj_pos_linear(memory)
-
-    query = self.q_traj(memory_traj)
-    key = self.k_traj(memory_copy)
-    value = self.v_traj(memory_copy)
+    memory_copy = self._traj_pos_linear(self._norm1(memory))
+    query = memory_traj
+    key = memory_copy
+    value = memory_copy
     
-    attn_output_traj_pose, attn_weights_traj_pose = self._self_attn_traj(
-        query, 
-        key, 
-        value, 
-        need_weights=True
-    )
+
+    attn_output_traj_pose, attn_weights_traj_pose = self.pos_traj_attention(query,key,value)
+    
     
     memory_traj = memory_traj.clone() + attn_output_traj_pose
     
@@ -238,34 +257,14 @@ class Transformer(nn.Module):
         mask_look_ahead=mask_look_ahead,
         get_attn_weights=get_attn_weights
     )
-    
-    output_attn = []
-    output_attn_traj=[]
-    
-    for i in range(len(out_attn)):
-        enc_dec_tot = torch.concat((memory,out_attn[i]),dim=0) 
-        qkv_end = self.qkv(enc_dec_tot)
-        q_end,k_end,v_end = qkv_end.chunk(3,dim=-1)
-        end_attn, end_attn_weights = self._self_attn_end(q_end,k_end,v_end,need_weights=True)
-        output_attn.append(end_attn[-self._tgt_seq_len:])
-        
-        enc_dec_tot_traj = torch.concat((memory_traj,out_attn_traj[i]),dim=0) 
-        qkv_end_traj = self.qkv_traj_end(enc_dec_tot_traj)
-        q_end_traj,k_end_traj,v_end_traj = qkv_end_traj.chunk(3,dim=-1)
-        end_attn_traj, end_attn_traj_weights = self._self_attn_end_traj(q_end_traj,k_end_traj,v_end_traj,need_weights=True)
-        output_attn_traj.append(end_attn_traj[-self._tgt_seq_len:])
-        
 
     out_weights_ = None
     enc_weights_ = None
     prob_matrix_ = None
-    
     if get_attn_weights:
       out_weights_, enc_weights_ = out_weights, enc_weights
 
     if self._query_selection:
       prob_matrix_ =  prob_matrix
 
-    return output_attn, memory, out_weights_, enc_weights_, (tgt_plain, prob_matrix_),output_attn_traj,memory_traj
-
-#    return out_attn, memory, out_weights_, enc_weights_, (tgt_plain, prob_matrix_),out_attn_traj,memory_traj
+    return out_attn, memory, out_weights_, enc_weights_, (tgt_plain, prob_matrix_),out_attn_traj,memory_traj

@@ -74,8 +74,6 @@ class EncoderLayer(nn.Module):
 
     self._linear1 = nn.Linear(model_dim, self._dim_ffn)
     self._linear2 = nn.Linear(self._dim_ffn, self._model_dim)
-    self.qkv = nn.Linear(self._model_dim, 3*self._model_dim)
-    
     self._norm1 = nn.LayerNorm(model_dim, eps=1e-5)
     self._norm2 = nn.LayerNorm(model_dim, eps=1e-5)
 
@@ -109,9 +107,9 @@ class EncoderLayer(nn.Module):
     """
     # add positional encodings to the input sequence
     # for self attention query is the same as key
-    source_seq = source_seq + pos_encodings
-    qkv = self.qkv(source_seq)
-    query,key,value = qkv.chunk(3,dim=-1)
+    query = source_seq + pos_encodings
+    key = query
+    value = source_seq
 
     attn_output, attn_weights = self._self_attn(
         query, 
@@ -144,9 +142,10 @@ class EncoderLayer(nn.Module):
     """
     # add positional encodings to the input sequence
     # for self attention query is the same as key
-    source_seq = self._norm1(source_seq_ + pos_encodings)
-    qkv = self.qkv(source_seq)
-    query,key,value = qkv.chunk(3,dim=-1)
+    source_seq = self._norm1(source_seq_)
+    query = source_seq + pos_encodings
+    key = query
+    value = source_seq
 
     attn_output, attn_weights = self._self_attn(
         query, 
@@ -199,7 +198,7 @@ class TransformerEncoder(nn.Module):
           dropout=self._dropout,
           init_fn=init_fn,
           pre_normalization=self._pre_normalization
-          )
+      )
       stack.append(layer)
     return stack
 

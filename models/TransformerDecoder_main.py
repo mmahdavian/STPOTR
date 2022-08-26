@@ -77,13 +77,8 @@ class DecoderLayer(nn.Module):
     self._multihead_attn = nn.MultiheadAttention(
         model_dim, num_heads, dropout=dropout
     )
-    self.qkv = nn.Linear(self._model_dim, 3*self._model_dim)
 
     # the so-called point-wise network
-    self.q_lin = nn.Linear(model_dim,model_dim)
-    self.k_lin = nn.Linear(model_dim,model_dim)
-    self.v_lin = nn.Linear(model_dim,model_dim)
-    
     self._linear1 = nn.Linear(model_dim, dim_ffn)
     self._linear2 = nn.Linear(dim_ffn, model_dim)
     self._relu = nn.ReLU()
@@ -149,12 +144,11 @@ class DecoderLayer(nn.Module):
     # 1) Compute self attention with current sequence of inferred tokens
     # query is the same as key for self attention
     # [batch_size, seq_length, model_dim]
+    if self._use_query_embedding:
+      q = k = v = target_seq + query_embedding
+    else:
+      q = k = v =  target_seq + pos_encodings
 
-    target_seq =  target_seq + pos_encodings
-
-    qkv = self.qkv(target_seq)
-    q,k,v = qkv.chunk(3,dim=-1) 
-    
     self_attn, self_attn_weights = self._self_attn(
         query=q, key=k, value=v, #target_seq,
         attn_mask=mask_look_ahead,
@@ -165,23 +159,10 @@ class DecoderLayer(nn.Module):
 
     # 2) Attend the encoder's memory given the comptued self attention
     # [batch_size, seq_length, model_dim]
-    
-    query = self.q_lin(out_self_attn)
-    key = self.k_lin(memory)
-    value = self.v_lin(memory)
-    
-# =============================================================================
-#     attn, attn_weights = self._multihead_attn(
-#         query=self.handle_query_embedding(out_self_attn, query_embedding), 
-#         key=self.handle_query_embedding(memory, pos_encodings), 
-#         value=memory)
-# =============================================================================
-    
     attn, attn_weights = self._multihead_attn(
-        query=query, 
-        key=key,
-        value=value)
-    
+        query=self.handle_query_embedding(out_self_attn, query_embedding), 
+        key=self.handle_query_embedding(memory, pos_encodings), 
+        value=memory)
     attn = self._dropout2(attn)
     out_attn = self._norm2(attn + out_self_attn)
 
@@ -212,27 +193,18 @@ class DecoderLayer(nn.Module):
       mask_look_ahead: []
       mask_target_padding:
     """
-    target_seq = self._norm1(target_seq_+pos_encodings)
+    target_seq = self._norm1(target_seq_)
     # 1) Compute self attention with current sequence of inferred tokens
     # query is the same as key for self attention
     # [batch_size, seq_length, model_dim]
-# =============================================================================
-#     if self._use_query_embedding:
-#       # in case of using only the query embedding follow DETR [2] which drops
-#       # values to zero and uses only the query embeddings
-#       q = k = target_seq + query_embedding
-#       v = target_seq
-#     else:
-#       target_seq =  target_seq + pos_encodings
-#       qkv = self.qkv(target_seq)
-#       q = qkv[:,:,:self._model_dim]
-#       k = qkv[:,:,self._model_dim:self._model_dim*2]
-#       v = qkv[:,:,2*self._model_dim:]    
-# =============================================================================
+    if self._use_query_embedding:
+      # in case of using only the query embedding follow DETR [2] which drops
+      # values to zero and uses only the query embeddings
+      q = k = target_seq + query_embedding
+      v = target_seq
+    else:
+      q = k = v =  target_seq + pos_encodings
 
-    qkv = self.qkv(target_seq)
-    q,k,v = qkv.chunk(3,dim=-1)
-    
     self_attn, self_attn_weights = self._self_attn(
         query=q, key=k, value=v,
         attn_mask=mask_look_ahead, 
@@ -243,20 +215,10 @@ class DecoderLayer(nn.Module):
 
     # 2) Attend the encoder's memory given the comptued self attention
     # [batch_size, seq_length, model_dim]
-    query = self.q_lin(out_self_attn)
-    key = self.k_lin(memory)
-    value = self.v_lin(memory)
-    
-#    attn, attn_weights = self._multihead_attn(
-#        query=self.handle_query_embedding(out_self_attn, query_embedding), 
-#        key=self.handle_query_embedding(memory, pos_encodings),
-#        value=memory)
-    
     attn, attn_weights = self._multihead_attn(
-        query=query, 
-        key=key,
-        value=value)
-    
+        query=self.handle_query_embedding(out_self_attn, query_embedding), 
+        key=self.handle_query_embedding(memory, pos_encodings),
+        value=memory)
     attn = self._dropout2(attn)
     out_attn = self._norm3(attn + out_self_attn)
 

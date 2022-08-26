@@ -48,7 +48,7 @@ import utils.PositionEncodings as PositionEncodings
 import models.TransformerEncoder as Encoder
 import models.TransformerDecoder as Decoder
 from models.Transformer import Transformer
-
+import random
 
 _SOURCE_LENGTH = 110
 _TARGET_LENGTH = 55
@@ -84,6 +84,7 @@ class PoseTransformer(nn.Module):
                copy_method='uniform_scan',
                query_selection=False,
                include_last_obs=False,
+               gt_ratio=0,
                pos_encoding_params=(10000, 1)):
     """Initialization of pose transformers."""
     super(PoseTransformer, self).__init__()
@@ -138,6 +139,11 @@ class PoseTransformer(nn.Module):
         temperature=self._pos_encoding_params[0],
         alpha=self._pos_encoding_params[1]
     )
+    self._pos_encoder_decoder = PositionEncodings.PositionEncodings1D(
+        num_pos_feats=self._model_dim,
+        temperature=self._pos_encoding_params[0],
+        alpha=self._pos_encoding_params[1]
+    )
     self._traj_encoder = PositionEncodings.PositionEncodings1D(
         num_pos_feats=self._model_dim_traj,
         temperature=self._pos_encoding_params[0],
@@ -168,6 +174,11 @@ class PoseTransformer(nn.Module):
           nn.Linear(self._action_head_size, self._num_activities),
       )
 
+    self._self_attn = nn.MultiheadAttention(model_dim, num_heads, dropout)
+    self.qkv = nn.Linear(self._model_dim, 3*self._model_dim)
+    self.drop = torch.nn.Dropout(p=0.5, inplace=False)
+    self._gt_ratio = gt_ratio
+
   def init_query_embedding(self):
     """Initialization of query sequence embedding."""
     self._query_embed = nn.Embedding(self._target_seq_length, self._model_dim)
@@ -188,6 +199,8 @@ class PoseTransformer(nn.Module):
     src_len = self._source_seq_length-1
     if self._include_last_obs:
         src_len += 1
+        
+    self.src_len = src_len
     # when using a token we need an extra element in the sequence
     if self._use_class_token:
       src_len = src_len + 1
@@ -195,6 +208,8 @@ class PoseTransformer(nn.Module):
             src_len, 1, self._model_dim)
     decoder_pos_encodings = self._pos_decoder(self._target_seq_length).view(
             self._target_seq_length, 1, self._model_dim)
+    encoder_decoder_pos_encodings = self._pos_encoder(src_len+self._target_seq_length).view(
+            (src_len+self._target_seq_length), 1, self._model_dim)
     encoder_traj_encodings = self._traj_encoder(src_len).view(
             src_len, 1, self._model_dim_traj)
     decoder_traj_encodings = self._traj_decoder(self._target_seq_length).view(
@@ -207,6 +222,8 @@ class PoseTransformer(nn.Module):
         encoder_pos_encodings, requires_grad=False)
     self._decoder_pos_encodings = nn.Parameter(
         decoder_pos_encodings, requires_grad=False)
+    self._encoder_decoder_pos_encodings = nn.Parameter(
+        encoder_decoder_pos_encodings, requires_grad=False)
     self._encoder_traj_encodings = nn.Parameter(
         encoder_traj_encodings, requires_grad=False)
     self._decoder_traj_encodings = nn.Parameter(
@@ -219,6 +236,8 @@ class PoseTransformer(nn.Module):
               target_pose_seq=None,
               input_traj_seq=None,
               target_traj_seq=None,
+              gt_pose=None,
+              gt_traj=None,
               mask_target_padding=None,
               get_attn_weights=False):
     """Performs the forward pass of the pose transformers.
@@ -235,12 +254,12 @@ class PoseTransformer(nn.Module):
     """
     if self.training:
       return self.forward_training(
-          input_pose_seq, target_pose_seq, input_traj_seq, target_traj_seq, mask_target_padding, get_attn_weights)
+          input_pose_seq, target_pose_seq, input_traj_seq, target_traj_seq, gt_pose, gt_traj, mask_target_padding, get_attn_weights, mode='train')
 
     # eval forward for non auto regressive type of model
     if self._non_autoregressive:
       return self.forward_training(
-          input_pose_seq, target_pose_seq, input_traj_seq, target_traj_seq, mask_target_padding, get_attn_weights)
+          input_pose_seq, target_pose_seq, input_traj_seq, target_traj_seq, gt_pose, gt_traj, mask_target_padding, get_attn_weights, mode='eval')
 
     return self.forward_autoregressive(
         input_pose_seq, target_pose_seq,input_traj_seq, target_traj_seq, mask_target_padding, get_attn_weights)
@@ -295,8 +314,11 @@ class PoseTransformer(nn.Module):
                        target_pose_seq_,
                        input_traj_seq_,
                        target_traj_seq_,
+                       gt_pose_seq_,
+                       gt_traj_seq_,
                        mask_target_padding,
-                       get_attn_weights=False):
+                       get_attn_weights=False,
+                       mode=None):
     """Compute forward pass for training and non recursive inference.
     Args:
        input_pose_seq_: Source sequence [batch_size, src_len, skeleton_dim].
@@ -375,12 +397,21 @@ class PoseTransformer(nn.Module):
       # apply residual connection between target query and predicted pose
       # [tgt_seq_len, batch_size, pose_dim]
       out_sequence_ = out_sequence_ + target_pose_seq_[:, :, 0:end]
+      ###
+           
+      if l == 3 and mode=='train':
+          mask_idx = sorted(random.sample(range(self._target_seq_length),k=int(self._gt_ratio*self._target_seq_length)))
+          mask = torch.zeros(out_sequence_.permute(1,0,2).shape).cuda()
+          mask[:,mask_idx,:]=1
+
+          out_sequence_ = out_sequence_.permute(1,0,2)*(1-mask) + gt_pose_seq_*mask
+          out_sequence_ = torch.transpose(out_sequence_, 0, 1)
+
       # [batch_size, tgt_seq_len, pose_dim]
       out_sequence_ = torch.transpose(out_sequence_, 0, 1)
       out_sequence.append(out_sequence_)
       
       ### trajectory decoder
-      
       # [target_seq_length*batch_size, pose_dim_traj]
       out_sequence_traj_ = self._traject_decoder(
           attn_output_traj[l].view(-1, self._model_dim_traj))
@@ -394,13 +425,11 @@ class PoseTransformer(nn.Module):
       out_sequence_traj_ = torch.transpose(out_sequence_traj_, 0, 1)
       out_sequence_traj.append(out_sequence_traj_)
       
-
     if self._predict_activity:
       out_class = self.predict_activity(attn_output, memory)
       return out_sequence, out_class, attn_weights, enc_weights, mat, out_sequence_traj
 
     return out_sequence, attn_weights, enc_weights, mat, out_sequence_traj
-
 
   def predict_activity(self, attn_output, memory):
     """Performs activity prediction either from memory or class token.
@@ -540,6 +569,8 @@ def model_factory(params, pose_embedding_fn, pose_decoder_fn, traj_embedding_fn,
       traj_decoder=traj_decoder_fn(params),
       query_selection=params['query_selection'],
       include_last_obs=params['include_last_obs'],
+      gt_ratio=params['gt_ratio'],
+#      gt_ratio=0,
       pos_encoding_params=(params['pos_enc_beta'], params['pos_enc_alpha'])
   )
 
