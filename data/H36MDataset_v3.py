@@ -124,7 +124,7 @@ def _find_indices_srnn(data, action):
   SEED = 1234567890
   rng = np.random.RandomState(SEED)
 
-  subject = 5
+  subject = 9
   subaction1 = 1
   subaction2 = 2
 
@@ -228,9 +228,9 @@ class H36MDataset(torch.utils.data.Dataset):
     """
     super(H36MDataset, self).__init__(**kwargs)
     self._params = params
-    self._train_ids = [1,6,7,8,9,11] 
-    self._test_ids = [5]
-    self._test_subject = 5
+    self._train_ids = [1,5,6,7,8] 
+    self._test_ids = [9,11]
+    self._test_subject = [9,11]
     self._test_n_seeds = params['eval_num_seeds']
     self._action_defs = []
     self._norm_stats = {}
@@ -355,7 +355,10 @@ class H36MDataset(torch.utils.data.Dataset):
 
     encoder_inputs[:, 0:input_size] = data_sel[0:src_seq_len,:]
     decoder_inputs[:, 0:input_size] = \
-        data_sel[src_seq_len:src_seq_len+target_seq_len, :]
+        data_sel[src_seq_len-1:src_seq_len-1+target_seq_len, :]
+    if self._params['noisy'] == True:
+        encoder_inputs = encoder_inputs + ((self._params['std']**0.5)*torch.randn(encoder_inputs.shape).cpu().detach().numpy())/(self._norm_stats['std'])
+        decoder_inputs = decoder_inputs + ((self._params['std']**0.5)*torch.randn(decoder_inputs.shape).cpu().detach().numpy())/(self._norm_stats['std'])
     # source_seq_len = src_seq_len + 1
     decoder_outputs[:, 0:pose_size] = data_sel[source_seq_len:, 0:pose_size]
 
@@ -424,7 +427,6 @@ class H36MDataset(torch.utils.data.Dataset):
         decoder_inputs_traj = batch['decoder_inputs_traj'].view(-1, tgt_len, 3)
         decoder_outputs_traj = batch['decoder_outputs_traj'].view(-1, tgt_len, 3)
         encoder_inputs_traj = batch['encoder_inputs_traj'].view(-1, src_len, 3)
-        #    distance_traj = batch['src_tgt_distance'].view(-1, src_len, tgt_len)
 
         action_ids = []
         for a in self._params['action_subset']:
@@ -539,7 +541,7 @@ class H36MDataset(torch.utils.data.Dataset):
     for i in range(self._test_n_seeds):
       _, subsequence, idx = seeds[i]
       idx = idx + source_seq_len_complete
-      the_key = (self._test_subject, action, subsequence)
+      the_key = (self._test_subject[0], action, subsequence)
 
       data_sel = self._data[the_key]
       data_sel = data_sel[(idx-src_seq_len):(idx+tgt_seq_len) , :]
@@ -622,15 +624,25 @@ class H36MDataset(torch.utils.data.Dataset):
 
     total_length = src_seq_len + self._params['target_seq_len']
 
-    the_key = (self._test_subject, action, 1)
+    the_key = (self._test_subject[0], action, 1)
     data_action = self._data[the_key]
     tot_seq, _ = data_action.shape
     seq1 = tot_seq // total_length
-    the_key2 = (self._test_subject, action, 5)
+    the_key2 = (self._test_subject[1], action, 5)
     data_action2 = self._data[the_key2]
     tot_seq2, _ = data_action2.shape
     seq2 = tot_seq2 // total_length
-    tot_sequences = seq1 + seq2
+    
+    the_key3 = (self._test_subject[0], action, 1)
+    data_action3 = self._data[the_key3]
+    tot_seq3, _ = data_action3.shape
+    seq3 = tot_seq3 // total_length
+    the_key4 = (self._test_subject[1], action, 5)
+    data_action4 = self._data[the_key4]
+    tot_seq4, _ = data_action4.shape
+    seq4 = tot_seq4 // total_length
+    
+    tot_sequences = seq1 + seq2 + seq3 + seq4
 
     encoder_inputs = np.zeros((tot_sequences, src_seq_len, input_size), dtype=np.float32)
     decoder_inputs = np.zeros((tot_sequences, tgt_seq_len, input_size), dtype=np.float32)
@@ -645,16 +657,26 @@ class H36MDataset(torch.utils.data.Dataset):
     distance = np.zeros((tot_sequences, src_seq_len, tgt_seq_len), dtype=np.float32)
 
 
-    for j in range(2):
-        the_key = (self._test_subject, action , 4*j+1)
+    for j in range(4):
+        if j==0 or j==1:
+            the_key = (self._test_subject[0], action , 4*j+1)
+        elif j==2 or j==3:
+            the_key = (self._test_subject[1], action , 4*(j-2)+1)
+            if self._test_subject[1]==11 and action=='Directions' and  4*(j-2)+1==1:
+                continue
         data_action = self._data[the_key]
         data_action_traj = self._traj[the_key]
         tot_seq,_ = data_action.shape
         for i in range(tot_seq//total_length):
             if j==1:
                 ij = i + seq1
+            elif j==2:
+                ij = i + seq1 + seq2
+            elif j==3:
+                ij = i + seq1 + seq2 + seq3
             else:
                 ij = i
+
             data_sel = data_action[i*(total_length):(i+1)*(total_length),:]
             data_sel_traj = data_action_traj[i*(total_length):(i+1)*(total_length),:]
             encoder_inputs[ij, :, :] = data_sel[0:src_seq_len, :]
@@ -728,7 +750,7 @@ class H36MDataset(torch.utils.data.Dataset):
     self._n_actions = len(self._action_defs)
     self.joints_left=[3, 4, 5, 10, 11, 12]
     self.joints_right=[0, 1, 2, 13, 14, 15]
-    self._data_ids_stat = [5,1,6,7,8,9,11]
+    self._data_ids_stat = [1,5,6,7,8,9,11]
 
 
     file_prefix = "{}/S{}/{}_{}.npy"
@@ -869,6 +891,7 @@ class H36MDataset(torch.utils.data.Dataset):
             i=0
         for action in sorted(self.my_keys):
             action_sequence = tot_action_sequence[action]
+
             n_frames,njoints, dims = action_sequence.shape
             frq=self._params['frame_rate']
             even_idx = range(0, n_frames, int(50//frq))

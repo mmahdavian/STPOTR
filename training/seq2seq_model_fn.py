@@ -232,7 +232,7 @@ class ModelFn(object):
         if k == 'actions' or k == 'decoder_outputs_action' or k=='action_str':
           continue
         sample[k] = sample[k].to(_DEVICE)
-      
+        
       sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][:,0].reshape(self._params['batch_size'],1,self._params['pose_dim_traj'])
       sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][:,0].reshape(self._params['batch_size'],1,self._params['pose_dim_traj'])
       sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][:,0].reshape(self._params['batch_size'],1,self._params['pose_dim_traj'])
@@ -264,7 +264,7 @@ class ModelFn(object):
           class_logits=pred_class,
           class_gt=gt_class
       )
-      landa1 = 0
+      landa1 = 1
       landa2 = 1
       landa3 = 1
       landa4 = 0
@@ -317,19 +317,21 @@ class ModelFn(object):
     self._global_step = 1
     thisname = self.__class__.__name__
     
-#      ###### load my model
-    self._model.load_state_dict(torch.load(
-      #    '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new34_best_sofar/models/best_epoch_pose_0250_best_sofar.pt', map_location=_DEVICE)
-      #     '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new37_best_sofar/models/best_epoch_traj_0058_best_sofar.pt',map_location=_DEVICE)
-        #   '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new38_best_sofar/models/best_epoch_pose_0046_best_sofar.pt',map_location=_DEVICE)
- #           '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new40_best_sofar/models/best_epoch_pose_0050_best_sofar.pt',map_location=_DEVICE)
-#            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new41/models/best_epoch_pose_0042_best_sofar.pt',map_location=_DEVICE)
-#            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new42/models/best_epoch_fde_0037_best_sofar.pt',map_location=_DEVICE)
-#            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new44_best_sofar/models/best_epoch_fde_0012_best_sofar.pt',map_location=_DEVICE)
-#            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new46_best_sofar/models/best_epoch_fde_0111_best_sofar.pt',map_location=_DEVICE)
-            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/models/best_epoch_fde_0129.pt',map_location=_DEVICE)
-
-           )
+# =============================================================================
+# #      ###### load my model
+#     self._model.load_state_dict(torch.load(
+#       #    '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new34_best_sofar/models/best_epoch_pose_0250_best_sofar.pt', map_location=_DEVICE)
+#       #     '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new37_best_sofar/models/best_epoch_traj_0058_best_sofar.pt',map_location=_DEVICE)
+#         #   '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new38_best_sofar/models/best_epoch_pose_0046_best_sofar.pt',map_location=_DEVICE)
+#  #           '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new40_best_sofar/models/best_epoch_pose_0050_best_sofar.pt',map_location=_DEVICE)
+# #            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new41/models/best_epoch_pose_0042_best_sofar.pt',map_location=_DEVICE)
+# #            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new42/models/best_epoch_fde_0037_best_sofar.pt',map_location=_DEVICE)
+# #            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new44_best_sofar/models/best_epoch_fde_0012_best_sofar.pt',map_location=_DEVICE)
+# #            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new46_best_sofar/models/best_epoch_fde_0111_best_sofar.pt',map_location=_DEVICE)
+#             '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj_best_sofar/models/best_epoch_fde_0129_best_sofar.pt',map_location=_DEVICE)
+# 
+#            )
+# =============================================================================
     
     
 # 
@@ -371,26 +373,28 @@ class ModelFn(object):
 #           param.requires_grad=False 
 # 
 # =============================================================================
-      for param in self._model._pose_embedding.parameters():
-          param.requires_grad=False
-      for param in self._model._encoder_pos_encodings:
-          param.requires_grad=False
-      for param in self._model._pose_decoder.parameters():
-          param.requires_grad=False
-      for param in self._model._decoder_pos_encodings:
-          param.requires_grad=False
-      for param in self._model._mask_look_ahead:
-          param.requires_grad=False
-      for param in self._model._transformer._encoder.parameters():
-          param.requires_grad=False
-      for param in self._model._transformer._decoder.parameters():
-          param.requires_grad=False
-      for param in self._model._transformer._self_attn_end.parameters():
-          param.requires_grad=False
-      for param in self._model._query_embed.parameters():
-          param.requires_grad=False
-      for param in self._model._transformer.qkv.parameters():
-          param.requires_grad=False
+# =============================================================================
+#       for param in self._model._pose_embedding.parameters():
+#           param.requires_grad=False
+#       for param in self._model._encoder_pos_encodings:
+#           param.requires_grad=False
+#       for param in self._model._pose_decoder.parameters():
+#           param.requires_grad=False
+#       for param in self._model._decoder_pos_encodings:
+#           param.requires_grad=False
+#       for param in self._model._mask_look_ahead:
+#           param.requires_grad=False
+#       for param in self._model._transformer._encoder.parameters():
+#           param.requires_grad=False
+#       for param in self._model._transformer._decoder.parameters():
+#           param.requires_grad=False
+#       for param in self._model._transformer._self_attn_end.parameters():
+#           param.requires_grad=False
+#       for param in self._model._query_embed.parameters():
+#           param.requires_grad=False
+#       for param in self._model._transformer.qkv.parameters():
+#           param.requires_grad=False
+# =============================================================================
           
       self._scalars = {}
       self._model.train()

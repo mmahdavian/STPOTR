@@ -219,6 +219,8 @@ if __name__ == '__main__':
   parser.add_argument('--pos_enc_beta', type=float, default=500)
   parser.add_argument('--gt_ratio', type=float, default=0)
   parser.add_argument('--weight_decay', type=float, default=0.001)
+  parser.add_argument('--std', type=float, default=0.0005)
+  parser.add_argument('--noisy', action='store_true')
 
   args = parser.parse_args()
   
