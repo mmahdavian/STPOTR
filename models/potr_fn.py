@@ -58,8 +58,8 @@ import utils.utils as utils
 import training.transformer_model_fn as tr_fn
 import tqdm
 
-# _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-_DEVICE = torch.device('cpu')
+_DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#_DEVICE = torch.device('cpu')
 
 
 def plot_conf_mat(matrix):
@@ -124,8 +124,8 @@ def compute_stats3(pred, gt, mrt):
 
 def Calc_error_h36mdataset():
       parser = argparse.ArgumentParser()
-      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/config/config.json")
-      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/models/best_epoch_fde_traj_0117.pt")
+      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected1/config/config.json")
+      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected1/models/best_epoch_ade_0196.pt")
       parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
       args = parser.parse_args()
 
@@ -229,8 +229,8 @@ def Calc_error_h36mdataset():
 #           
 #           t2=time.time()
 #           print(t2-t1)
+# 
 # =============================================================================
-
 #          prediction = model(
 #              enc_inputs, 
 #              dec_inputs, 
@@ -320,8 +320,8 @@ def Calc_error_h36mdataset():
 def visualize_h36mdataset():
 
       parser = argparse.ArgumentParser()
-      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/config/config.json")
-      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/models/best_epoch_fde_traj_0117.pt")
+      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj_best_sofar/config/config.json")
+      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj_best_sofar/models/best_epoch_fde_0129_best_sofar.pt")
       parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
       args = parser.parse_args()
     
@@ -436,7 +436,7 @@ def visualize_h36mdataset():
             
 #          elev = 90
 #          azim = 90
-          batch=3
+          batch=5
           ### prediction graph
           fig = plt.figure(figsize=(4,4))
           ax = fig.add_subplot(111, projection='3d')
@@ -451,6 +451,13 @@ def visualize_h36mdataset():
           for i in range(19,20):
               pos = preds[batch][i].reshape(16,3)
               pos = np.concatenate((np.array([[0,0,0]]),pos),axis=0) + preds_traj[batch][i]
+
+              for h in range(1,17):
+                  if h==16:
+                      ax.plot(pos[h,0],pos[h,1],pos[h,2],'g*')
+                  else:
+                      ax.plot(pos[h,0],pos[h,1],pos[h,2],'b*')
+
      #         dx += 0.4
               for j, j_parent in enumerate(parents):    
                   if j_parent == -1:
@@ -770,8 +777,8 @@ def visualize_attn_weights():
 
 
 if __name__ == '__main__':
-   visualize_h36mdataset()
-#   Calc_error_h36mdataset()
+#   visualize_h36mdataset()
+   Calc_error_h36mdataset()
 #  visualize_attn_weights()
   #compute_test_mAP_nturgbd()
 

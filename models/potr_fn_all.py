@@ -124,13 +124,12 @@ def compute_stats3(pred, gt, mrt):
 
 def Calc_error_h36mdataset():
       parser = argparse.ArgumentParser()
-      address = "/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj/models/"
+      address = "/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected1/models/"
       adrs_list = os.listdir(address)
       total_result=[]
 
       for adrs in adrs_list:
-        print("heeeeeeeeeeeeeeeeeeeeeeeeey")  
-        print(adrs)
+
         parser = argparse.ArgumentParser()
         parser.add_argument('--config_file', type=str,default=address[:len(address)-7]+"config/config.json")
         parser.add_argument('--model_file', type=str,default=address+adrs)
@@ -329,7 +328,8 @@ def Calc_error_h36mdataset():
         avg_ADE_traj = total_ade_traj / my_counter
         avg_FDE_traj = total_fde_traj / my_counter
         print(avg_ADE_traj,avg_FDE_traj)
-      print(total_result)
+      for res in total_result:
+        print(res)
       return 0
 
 #      H36MDataset_v3.visualize_sequence(preds, args.data_path, 
