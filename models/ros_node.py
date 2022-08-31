@@ -63,9 +63,10 @@ _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class human_prediction():
-    def __init__(self,model):
+    def __init__(self,model,eval_dataset_fn):
         rospy.init_node('listener', anonymous=True)
         self.model = model
+        self.eval_dataset_fn = eval_dataset_fn
         self.skeleton_subscriber = rospy.Subscriber("pose_publisher/skeleton", Skeleton3D, self.Predict)
   #      self.obj_pub = rospy.Publisher('/obj_position', PointCloud , queue_size=1)    
              
@@ -92,7 +93,6 @@ class human_prediction():
 #             dec_inputs_traj = torch.squeeze(dec_inputs_traj)
 # =============================================================================
             
-            t1 = time.time()
             prediction = model(
                 enc_inputs,
                 dec_inputs,
@@ -100,7 +100,6 @@ class human_prediction():
                 dec_inputs_traj,
                 get_attn_weights=True
             )
-            t2=time.time()
   
             classes = prediction[1]
             traj_prediction = prediction[-1]
@@ -109,8 +108,8 @@ class human_prediction():
             prediction = prediction[0]
             prediction = prediction[-1].cpu().numpy()
   
-            preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
-            preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
+            preds = self.eval_dataset_fn.dataset.unnormalize_mine(prediction)
+            preds_traj = self.eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
             
             maximum_estimation_time = params['target_seq_len']/params['frame_rate']
             
@@ -128,6 +127,11 @@ if __name__ == '__main__':
     if args.data_path is not None:
       params['data_path'] = args.data_path
     args.data_path = params['data_path']
+    
+    
+    train_dataset_fn, eval_dataset_fn = tr_fn.dataset_factory_total(params)
+    
+    
     pose_encoder_fn, pose_decoder_fn = \
         PoseEncoderDecoder.select_pose_encoder_decoder_fn(params)
         
@@ -150,7 +154,7 @@ if __name__ == '__main__':
     model.to(_DEVICE)
     model.eval()
               
-    human_prediction(model)
+    human_prediction(model,eval_dataset_fn)
     rospy.spin()
     
     
