@@ -71,66 +71,56 @@ class human_prediction():
              
     def Predict(self,skeleton):
         print(skeleton)
+        with torch.no_grad():
+
+            
+            sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
+            sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
+            sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
+
+            enc_inputs = sample['encoder_inputs'].to(_DEVICE)
+            dec_inputs = sample['decoder_inputs'].to(_DEVICE)
+                        
+            enc_inputs_traj = sample['encoder_inputs_traj'].to(_DEVICE)
+            dec_inputs_traj = sample['decoder_inputs_traj'].to(_DEVICE)
+          
 # =============================================================================
-#         with torch.no_grad():
-#             enc_inputs = sample['encoder_inputs'].to(_DEVICE)
-#             dec_inputs = sample['decoder_inputs'].to(_DEVICE)
-#             sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
-#             sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
-#             sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
-#             
-#             enc_inputs_traj = sample['encoder_inputs_traj'].to(_DEVICE)
-#             dec_inputs_traj = sample['decoder_inputs_traj'].to(_DEVICE)
-#           
-#   
-#             gts = np.squeeze(sample['decoder_outputs'].cpu().numpy())
-#             ins = np.squeeze(sample['encoder_inputs'].cpu().numpy())
-#             gts_traj = np.squeeze(sample['decoder_outputs_traj'].cpu().numpy())
-#             ins_traj = np.squeeze(sample['encoder_inputs_traj'].cpu().numpy())
-#             print(gts.shape)
-#   
-#             ins = eval_dataset_fn.dataset.unnormalize_mine(ins)
-#             ins_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(ins_traj)
-#         
-#             gts = eval_dataset_fn.dataset.unnormalize_mine(gts)
-#             gts_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(gts_traj)
-#          
 #             enc_inputs = torch.squeeze(enc_inputs)
 #             dec_inputs = torch.squeeze(dec_inputs)
 #   
 #             enc_inputs_traj = torch.squeeze(enc_inputs_traj)
 #             dec_inputs_traj = torch.squeeze(dec_inputs_traj)
-#             
-#             t1 = time.time()
-#             prediction = model(
-#                 enc_inputs[0],
-#                 dec_inputs[0],
-#                 enc_inputs_traj[0],
-#                 dec_inputs_traj[0],
-#                 get_attn_weights=True
-#             )
-#             t2=time.time()
-#   
-#             classes = prediction[1]
-#             traj_prediction = prediction[-1]
-#             traj_prediction = traj_prediction[-1].cpu().numpy()
-#   
-#             prediction = prediction[0]
-#             prediction = prediction[-1].cpu().numpy()
-#   
-#             preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
-#             preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
-#             
-#             maximum_estimation_time = params['target_seq_len']/params['frame_rate']
-#             
-#             my_counter +=1
 # =============================================================================
+            
+            t1 = time.time()
+            prediction = model(
+                enc_inputs,
+                dec_inputs,
+                enc_inputs_traj,
+                dec_inputs_traj,
+                get_attn_weights=True
+            )
+            t2=time.time()
+  
+            classes = prediction[1]
+            traj_prediction = prediction[-1]
+            traj_prediction = traj_prediction[-1].cpu().numpy()
+  
+            prediction = prediction[0]
+            prediction = prediction[-1].cpu().numpy()
+  
+            preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
+            preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
+            
+            maximum_estimation_time = params['target_seq_len']/params['frame_rate']
+            
+            my_counter +=1
     
  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj_best_sofar/config/config.json")
-    parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj_best_sofar/models/best_epoch_fde_0129_best_sofar.pt")
+    parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected3/config/config.json")
+    parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected3/models/best_epoch_fde_0176_best_sofar.pt")
     parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
     args = parser.parse_args()
     params = json.load(open(args.config_file))
