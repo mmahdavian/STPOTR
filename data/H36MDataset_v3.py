@@ -628,12 +628,12 @@ class H36MDataset(torch.utils.data.Dataset):
     data_action = self._data[the_key]
     tot_seq, _ = data_action.shape
     seq1 = tot_seq // total_length
-    the_key2 = (self._test_subject[1], action, 5)
+    the_key2 = (self._test_subject[0], action, 5)
     data_action2 = self._data[the_key2]
     tot_seq2, _ = data_action2.shape
     seq2 = tot_seq2 // total_length
     
-    the_key3 = (self._test_subject[0], action, 1)
+    the_key3 = (self._test_subject[1], action, 1)
     data_action3 = self._data[the_key3]
     tot_seq3, _ = data_action3.shape
     seq3 = tot_seq3 // total_length
