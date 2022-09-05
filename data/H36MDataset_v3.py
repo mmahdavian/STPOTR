@@ -663,7 +663,7 @@ class H36MDataset(torch.utils.data.Dataset):
         elif j==2 or j==3:
             the_key = (self._test_subject[1], action , 4*(j-2)+1)
             if self._test_subject[1]==11 and action=='Directions' and  4*(j-2)+1==1:
-                continue
+                the_key = (self._test_subject[1], action , 4*(j-2)+2)
         data_action = self._data[the_key]
         data_action_traj = self._traj[the_key]
         tot_seq,_ = data_action.shape
