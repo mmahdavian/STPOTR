@@ -59,6 +59,8 @@ import tqdm
 from pose_publisher.msg import Skeleton3D17
 from pose_publisher.msg import Skeleton3DBuffer
 from zed_interfaces.msg import Keypoint3D
+from std_msgs.msg import Float64MultiArray
+
 
 _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #_DEVICE = torch.device('cpu')
@@ -71,6 +73,8 @@ class human_prediction():
         self.skeleton_subscriber = rospy.Subscriber("/pose_publisher/3DSkeletonBuffer", Skeleton3DBuffer, self.Predict)
         self.my_counter = 0
   #      self.obj_pub = rospy.Publisher('/obj_position', PointCloud , queue_size=1)    
+        self.publisher = rospy.Publisher('/potrtr/predictions', Skeleton3DBuffer, queue_size=10)
+
     
     def skeleton_to_inputs(self, skeletonbuffer):
 
@@ -86,6 +90,20 @@ class human_prediction():
         dec_input = np.array(dec_input).reshape(1, 20,48)
         dec_traj = np.array(dec_traj).reshape(1,20,3)
         return enc_input, enc_traj, dec_input, dec_traj
+
+    def predictions_to_msg(self, prediction, trajectory, seq):
+        
+        output = np.concatenate((prediction.reshape(20,16,3),trajectory.reshape(20,1,3)),axis=1)
+
+        skeletonbuffer_msg = Skeleton3DBuffer()
+        array_msg =  Float64MultiArray()
+        array_msg.data = output.flatten()
+
+        skeletonbuffer_msg.skeleton_3d_17_flat = array_msg
+        skeletonbuffer_msg.shape = output.shape
+        skeletonbuffer_msg.seq = seq
+
+        return skeletonbuffer_msg
 
     def Predict(self,skeletonbuffer):
 # =============================================================================
@@ -122,11 +140,11 @@ class human_prediction():
   
             classes = prediction[1]
             traj_prediction = prediction[-1]
-            traj_prediction = traj_prediction[-1].cpu().numpy()
+            traj_prediction = traj_prediction[-1].cpu().numpy() #.reshape(20,1,3)
   
             prediction = prediction[0]
-            prediction = prediction[-1].cpu().numpy()
-  
+            prediction = prediction[-1].cpu().numpy() #.reshape(20,16,3)
+            self.publisher.publish(self.predictions_to_msg(prediction,traj_prediction, skeletonbuffer.seq))    
             # preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
             # preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
             
