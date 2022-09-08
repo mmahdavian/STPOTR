@@ -56,7 +56,9 @@ import utils.utils as utils
 #import radam.radam as radam
 import training.transformer_model_fn as tr_fn
 import tqdm
-from zed_interfaces.msg import Skeleton3D
+from pose_publisher.msg import Skeleton3D17
+from pose_publisher.msg import Skeleton3DBuffer
+from zed_interfaces.msg import Keypoint3D
 
 _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #_DEVICE = torch.device('cpu')
@@ -67,22 +69,17 @@ class human_prediction():
         rospy.init_node('listener', anonymous=True)
         self.model = model
         self.skeleton_subscriber = rospy.Subscriber("/pose_publisher/3DSkeletonBuffer", Skeleton3DBuffer, self.Predict)
-        self.my_counter=0
+        self.my_counter = 0
   #      self.obj_pub = rospy.Publisher('/obj_position', PointCloud , queue_size=1)    
-    def skeleton_to_inputs(self, skeleton):
-        enc_input = []
-        enc_traj = []
-        dec_input = []
-        dec_traj = []
-        first_hip = list(skeleton.skeleton_3d_17[0].keypoints)[0]
-        for body in skeleton.skeleton_3d_17:
-            hip = list(body.keypoints)[0]
-            keypoints = list(body.keypoints)[1:17]
-            enc_input.append(np.array([np.array(kp.kp)-np.array(hip.kp) for kp in keypoints]))
-            enc_traj.append(np.array(hip.kp)-np.array(first_hip.kp))
+    
+    def skeleton_to_inputs(self, skeletonbuffer):
 
-        dec_input = np.array([[kp.kp for kp in keypoints]]*20)
-        dec_traj = np.array([np.array(hip.kp)-np.array(first_hip.kp)]*20)
+        skeletonbuffer = np.array(skeletonbuffer.skeleton_3d_17_flat.data).reshape(skeletonbuffer.shape)
+        first_hip = skeletonbuffer[0,0,:]
+        enc_input = skeletonbuffer[:,1:,:] - first_hip
+        enc_traj = skeletonbuffer[:,0,:] - first_hip
+        dec_input = np.array([skeletonbuffer[-1,1:,:] - first_hip]*20)
+        dec_traj = np.array([skeletonbuffer[-1,0,:] - first_hip]*20)
 
         enc_input = np.array(enc_input).reshape(1,5,48) #reshape (5,3,16) to (5,48)
         enc_traj = np.array(enc_traj).reshape(1,5,3)
@@ -90,14 +87,11 @@ class human_prediction():
         dec_traj = np.array(dec_traj).reshape(1,20,3)
         return enc_input, enc_traj, dec_input, dec_traj
 
-    def Predict(self,skeleton):
-        print("skeleton received,",skeleton.header.stamp)
-        
-        enc_input, enc_traj, dec_input, decc_traj = self.skeleton_to_inputs(skeleton)    
+    def Predict(self,skeletonbuffer):
 # =============================================================================
         with torch.no_grad():
+            enc_input, enc_traj, dec_input, decc_traj = self.skeleton_to_inputs(skeletonbuffer) 
 
-            
             # sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
             # sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
             # sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][0,:,0].reshape(-1,1,3)
@@ -133,8 +127,8 @@ class human_prediction():
             prediction = prediction[0]
             prediction = prediction[-1].cpu().numpy()
   
-            preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
-            preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
+            # preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
+            # preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
             
             maximum_estimation_time = params['target_seq_len']/params['frame_rate']
             
@@ -144,19 +138,12 @@ class human_prediction():
  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected3/config/config.json")
-    parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected3/models/best_epoch_fde_0176_best_sofar.pt")
-    parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
+    parser.add_argument('--config_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/config.json")
+    parser.add_argument('--model_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/best_epoch_fde_0176_best_sofar.pt")
     args = parser.parse_args()
     params = json.load(open(args.config_file))
 
-    if args.data_path is not None:
-      params['data_path'] = args.data_path
-    args.data_path = params['data_path']
-    
-    
-    train_dataset_fn, eval_dataset_fn = tr_fn.dataset_factory_total(params)
-    
+    # train_dataset_fn, eval_dataset_fn = tr_fn.dataset_factory_total(params)
     
     pose_encoder_fn, pose_decoder_fn = \
         PoseEncoderDecoder.select_pose_encoder_decoder_fn(params)
@@ -180,7 +167,7 @@ if __name__ == '__main__':
     model.to(_DEVICE)
     model.eval()
               
-    human_prediction(model,eval_dataset_fn)
+    human_prediction(model)
     rospy.spin()
     
     
