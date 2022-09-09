@@ -614,6 +614,7 @@ class H36MDataset(torch.utils.data.Dataset):
     data_action = self._data[the_key]
     tot_seq, _ = data_action.shape
     seq1 = tot_seq // total_length
+    
     the_key2 = (self._test_subject[0], action, 5)
     data_action2 = self._data[the_key2]
     tot_seq2, _ = data_action2.shape
@@ -625,6 +626,7 @@ class H36MDataset(torch.utils.data.Dataset):
     data_action3 = self._data[the_key3]
     tot_seq3, _ = data_action3.shape
     seq3 = tot_seq3 // total_length
+
     the_key4 = (self._test_subject[1], action, 5)
     data_action4 = self._data[the_key4]
     tot_seq4, _ = data_action4.shape
@@ -640,7 +642,6 @@ class H36MDataset(torch.utils.data.Dataset):
     decoder_inputs_traj = np.zeros((tot_sequences, tgt_seq_len, 3), dtype=np.float32)
     decoder_outputs_traj = np.zeros((tot_sequences, tgt_seq_len, 3), dtype=np.float32)
 
-    # decoder_outputs_euler = np.zeros((n_seeds, tgt_seq_len, 96), dtype=np.float32)
     action_id_instance= np.zeros((tot_sequences, tgt_seq_len), dtype=np.int64)
     distance = np.zeros((tot_sequences, src_seq_len, tgt_seq_len), dtype=np.float32)
 
@@ -652,6 +653,7 @@ class H36MDataset(torch.utils.data.Dataset):
             the_key = (self._test_subject[1], action , 4*(j-2)+1)
             if self._test_subject[1]==11 and action=='Directions' and  4*(j-2)+1==1:
                 the_key = (11, 'Directions', 6)
+        #        the_key = (self._test_subject[1], action , 4*(j-2)+2)
         data_action = self._data[the_key]
         data_action_traj = self._traj[the_key]
         tot_seq,_ = data_action.shape
