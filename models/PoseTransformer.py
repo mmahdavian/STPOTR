@@ -84,6 +84,7 @@ class PoseTransformer(nn.Module):
                copy_method='uniform_scan',
                query_selection=False,
                include_last_obs=False,
+               end_attention=True,
                pos_encoding_params=(10000, 1)):
     """Initialization of pose transformers."""
     super(PoseTransformer, self).__init__()
@@ -121,6 +122,7 @@ class PoseTransformer(nn.Module):
         use_query_embedding=use_query_embedding,
         pre_normalization=pre_normalization,
         query_selection=query_selection,
+        end_attention=end_attention,
         target_seq_len=target_seq_length
     )
 
@@ -361,7 +363,8 @@ class PoseTransformer(nn.Module):
         torch.transpose(target_pose_seq_, 0, 1)
     target_traj_seq_ = mat[0] if self._query_selection else \
         torch.transpose(target_traj_seq_, 0, 1)
-        
+     
+
     # 4) decode sequence with pose decoder. The decoding process is time
     # independent. It means non-autoregressive or parallel decoding.
     # [batch_size, target_sequence_length, pose_dim]
@@ -376,9 +379,9 @@ class PoseTransformer(nn.Module):
       # [tgt_seq_len, batch_size, pose_dim]
       out_sequence_ = out_sequence_ + target_pose_seq_[:, :, 0:end]
       # [batch_size, tgt_seq_len, pose_dim]
-      out_sequence_ = torch.transpose(out_sequence_, 0, 1)
+      out_sequence_ = torch.transpose(out_sequence_,0,1) 
       out_sequence.append(out_sequence_)
-      
+
       ### trajectory decoder
       
       # [target_seq_length*batch_size, pose_dim_traj]
@@ -391,15 +394,16 @@ class PoseTransformer(nn.Module):
       # [tgt_seq_len, batch_size, pose_dim_traj]
       out_sequence_traj_ = out_sequence_traj_ + target_traj_seq_[:, :, 0:3]
       # [batch_size, tgt_seq_len, pose_dim_traj]
-      out_sequence_traj_ = torch.transpose(out_sequence_traj_, 0, 1)
+      out_sequence_traj_ = torch.transpose(out_sequence_traj_,0,1)
       out_sequence_traj.append(out_sequence_traj_)
-      
 
+      
+    out_class = None
     if self._predict_activity:
       out_class = self.predict_activity(attn_output, memory)
       return out_sequence, out_class, attn_weights, enc_weights, mat, out_sequence_traj
 
-    return out_sequence, attn_weights, enc_weights, mat, out_sequence_traj
+    return out_sequence,out_class, attn_weights, enc_weights, mat, out_sequence_traj
 
 
   def predict_activity(self, attn_output, memory):
@@ -540,6 +544,7 @@ def model_factory(params, pose_embedding_fn, pose_decoder_fn, traj_embedding_fn,
       traj_decoder=traj_decoder_fn(params),
       query_selection=params['query_selection'],
       include_last_obs=params['include_last_obs'],
+      end_attention=params['end_attention'],
       pos_encoding_params=(params['pos_enc_beta'], params['pos_enc_alpha'])
   )
 

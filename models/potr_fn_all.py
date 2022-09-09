@@ -124,7 +124,7 @@ def compute_stats3(pred, gt, mrt):
 
 def Calc_error_h36mdataset():
       parser = argparse.ArgumentParser()
-      address = "/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected1/models/"
+      address = "/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test24_for_pose/models/"
       adrs_list = os.listdir(address)
       total_result=[]
 

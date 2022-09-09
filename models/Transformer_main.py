@@ -198,6 +198,9 @@ class Transformer(nn.Module):
     memory, enc_weights = self._encoder(source_seq, encoder_position_encodings)
     memory_traj, enc_weights_traj = self._encoder_traj(source_seq_traj, encoder_trajectory_encodings)
 
+#    memory = memory.clone() + source_seq + encoder_position_encodings
+#    memory_traj = memory_traj.clone() + source_seq_traj + encoder_trajectory_encodings
+    
     tgt_plain = None
     # perform selection from input sequence
     if self._query_selection:
@@ -226,6 +229,7 @@ class Transformer(nn.Module):
         value, 
         need_weights=True
     )
+    
     memory_traj = memory_traj.clone() + attn_output_traj_pose
     
     out_attn_traj, out_weights_traj = self._decoder_traj(
@@ -242,18 +246,25 @@ class Transformer(nn.Module):
     output_attn_traj=[]
     
     for i in range(len(out_attn)):
-        enc_dec_tot = torch.concat((memory,out_attn[i]),dim=0) 
+#        enc_dec_tot = torch.concat((source_seq+encoder_position_encodings,out_attn[i]),dim=0) 
+        enc_dec_tot = torch.concat((memory,out_attn[i]),dim=0)
+#        enc_dec_tot = torch.concat((memory,out_attn[i]+target_seq+decoder_position_encodings),dim=0)
+#        enc_dec_tot = torch.concat((memory,out_attn[i]+target_seq),dim=0)
         qkv_end = self.qkv(enc_dec_tot)
         q_end,k_end,v_end = qkv_end.chunk(3,dim=-1)
         end_attn, end_attn_weights = self._self_attn_end(q_end,k_end,v_end,need_weights=True)
         output_attn.append(end_attn[-self._tgt_seq_len:])
         
         enc_dec_tot_traj = torch.concat((memory_traj,out_attn_traj[i]),dim=0) 
+#        enc_dec_tot_traj = torch.concat((source_seq_traj+ encoder_trajectory_encodings,out_attn_traj[i]),dim=0)
+#        enc_dec_tot_traj = torch.concat((memory_traj,out_attn_traj[i]+target_seq_traj+decoder_trajectory_encodings),dim=0)
+#        enc_dec_tot_traj = torch.concat((memory_traj,out_attn_traj[i]+target_seq_traj),dim=0)
         qkv_end_traj = self.qkv_traj_end(enc_dec_tot_traj)
         q_end_traj,k_end_traj,v_end_traj = qkv_end_traj.chunk(3,dim=-1)
         end_attn_traj, end_attn_traj_weights = self._self_attn_end_traj(q_end_traj,k_end_traj,v_end_traj,need_weights=True)
         output_attn_traj.append(end_attn_traj[-self._tgt_seq_len:])
         
+
     out_weights_ = None
     enc_weights_ = None
     prob_matrix_ = None

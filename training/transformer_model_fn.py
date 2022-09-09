@@ -221,6 +221,8 @@ if __name__ == '__main__':
   parser.add_argument('--weight_decay', type=float, default=0.001)
   parser.add_argument('--std', type=float, default=0.0005)
   parser.add_argument('--noisy', action='store_true')
+  parser.add_argument('--end_attention', action='store_true')
+  parser.add_argument('--heading', action='store_true')
 
   args = parser.parse_args()
   

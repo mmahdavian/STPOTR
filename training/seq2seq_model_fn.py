@@ -52,7 +52,7 @@ sys.path.insert(0, thispath+"/../")
 
 import utils.utils as utils
 import utils.WarmUpScheduler as warm_up_scheduler
-import data.H36MDataset_v2 as h36mdataset_fn
+import data.H36MDataset_v3 as h36mdataset_fn
 import visualize.viz as viz
 import models.seq2seq_model as seq2seq_model
 
@@ -181,7 +181,19 @@ class ModelFn(object):
 
   def loss_mse(self, decoder_pred, decoder_gt):
     """Computes the L2 loss between predictions and ground truth."""
-    step_loss = (decoder_pred - decoder_gt)**2
+    if self._params['heading'] and decoder_pred.shape[2]==48:
+       weight = torch.ones((1,48)).cuda()
+       weight[0,0] = 1.5
+       weight[0,1] = 1.5
+       weight[0,2] = 1.5
+       weight[0,9] = 1.5
+       weight[0,10] = 1.5
+       weight[0,11] = 1.5
+       weight = weight.unsqueeze(0)
+       weight.repeat(self._params['batch_size'],self._params['target_seq_len'],1)       
+       step_loss = (decoder_pred - decoder_gt)**2  * weight
+    else:
+       step_loss = (decoder_pred - decoder_gt)**2
     step_loss = step_loss.mean()
 
     return step_loss
@@ -203,8 +215,8 @@ class ModelFn(object):
                 step_loss, self._params['learning_rate'], selection_logs) 
       )
     else:
-      print("[INFO] global {3:06d}; step {0:04d}; step_loss: {1:.4f}; traj_loss: {:4f} - lr: {2:.2e} {4:s}".\
-          format(self._global_step,current_step, step_loss, traj_loss, self._params['learning_rate'], 
+      print("[INFO] global {:06d}; step {:04d}; step_loss: {:.4f}; pose_loss {:4f}; traj_loss: {:4f} - lr: {:.2e} {:s}".\
+          format(self._global_step,current_step, step_loss,pose_loss, traj_loss, self._params['learning_rate'], 
                  selection_logs)
     )
 
@@ -233,9 +245,9 @@ class ModelFn(object):
           continue
         sample[k] = sample[k].to(_DEVICE)
         
-      sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][:,0].reshape(self._params['batch_size'],1,self._params['pose_dim_traj'])
-      sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][:,0].reshape(self._params['batch_size'],1,self._params['pose_dim_traj'])
-      sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][:,0].reshape(self._params['batch_size'],1,self._params['pose_dim_traj'])
+      sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][:,0:1]
+      sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][:,0:1]
+      sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][:,0:1]
       
       decoder_pred = self._model(
           sample['encoder_inputs'], sample['decoder_inputs'],sample['encoder_inputs_traj'],sample['decoder_inputs_traj'])
@@ -253,7 +265,7 @@ class ModelFn(object):
       if self._params['predict_activity']:
         gt_class = sample['action_ids']  # one label for the sequence
         pred_class = decoder_pred[1]
-        
+      
       pose_loss, activity_loss, trajectory_loss, velocity_loss = self.compute_loss(
           inputs=sample['encoder_inputs'],
           target=sample['decoder_outputs'],
@@ -265,7 +277,7 @@ class ModelFn(object):
           class_gt=gt_class
       )
       landa1 = 1
-      landa2 = 1
+      landa2 = 0
       landa3 = 1
       landa4 = 0
       
@@ -320,27 +332,22 @@ class ModelFn(object):
 # =============================================================================
 # #      ###### load my model
 #     self._model.load_state_dict(torch.load(
-#       #    '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new34_best_sofar/models/best_epoch_pose_0250_best_sofar.pt', map_location=_DEVICE)
-#       #     '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new37_best_sofar/models/best_epoch_traj_0058_best_sofar.pt',map_location=_DEVICE)
-#         #   '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new38_best_sofar/models/best_epoch_pose_0046_best_sofar.pt',map_location=_DEVICE)
-#  #           '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new40_best_sofar/models/best_epoch_pose_0050_best_sofar.pt',map_location=_DEVICE)
-# #            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new41/models/best_epoch_pose_0042_best_sofar.pt',map_location=_DEVICE)
-# #            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new42/models/best_epoch_fde_0037_best_sofar.pt',map_location=_DEVICE)
-# #            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new44_best_sofar/models/best_epoch_fde_0012_best_sofar.pt',map_location=_DEVICE)
-# #            '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new46_best_sofar/models/best_epoch_fde_0111_best_sofar.pt',map_location=_DEVICE)
-#             '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/new48_for_traj_best_sofar/models/best_epoch_fde_0129_best_sofar.pt',map_location=_DEVICE)
+# # #             '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test11_best_sofar/models/best_epoch_fde_0023_best_sofar.pt',map_location=_DEVICE)
+# # #             '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test16_for_traj/models/best_epoch_fde_traj_0237.pt',map_location=_DEVICE)
+# #              '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test17/models/best_epoch_fde_traj_0194_best_for_fde_traj.pt',map_location=_DEVICE)
+# #              '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test20_best_sofar/models/best_epoch_fde_traj_0000_best_sofar.pt',map_location=_DEVICE)
+#               '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test21_best_sofar/models/best_epoch_fde_0002_best_sofar.pt',map_location=_DEVICE)
+#               )
 # 
-#            )
+# 
 # =============================================================================
-    
-    
-# 
 # =============================================================================
     for e in range(self._params['max_epochs']):
 # =============================================================================
 #       for param in self._model.state_dict():
 #           print(param)
 #         
+# =============================================================================
 # =============================================================================
 # =============================================================================
 #       for param in self._model._traj_embedding.parameters():
@@ -371,30 +378,32 @@ class ModelFn(object):
 #           param.requires_grad=False
 #       for param in self._model._transformer.v_traj.parameters():
 #           param.requires_grad=False 
-# 
 # =============================================================================
+# =============================================================================
+
 # =============================================================================
 #       for param in self._model._pose_embedding.parameters():
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._encoder_pos_encodings:
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._pose_decoder.parameters():
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._decoder_pos_encodings:
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._mask_look_ahead:
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._transformer._encoder.parameters():
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._transformer._decoder.parameters():
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._transformer._self_attn_end.parameters():
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._query_embed.parameters():
-#           param.requires_grad=False
+#          param.requires_grad=False
 #       for param in self._model._transformer.qkv.parameters():
-#           param.requires_grad=False
+#          param.requires_grad=False
 # =============================================================================
+
           
       self._scalars = {}
       self._model.train()
@@ -432,13 +441,15 @@ class ModelFn(object):
         self._scalars['eval_loss_vel'] = eval_loss_vel
         
       else:
-        self._scalars['eval_loss'] = eval_loss.item()
-        self._scalars['eval_loss_traj'] = eval_loss_traj.item()
-        self._scalars['eval_loss_vel'] = eval_loss_vel.item()
-        
-        check_eval = eval_loss.item()
-        check_eval_traj = eval_loss_traj.item()
-        
+        eval_loss_traj = eval_loss[-2]
+        eval_loss_vel = eval_loss[-1]
+        eval_loss = eval_loss[0]
+        check_eval = eval_loss
+        check_eval_traj = eval_loss_traj
+
+        self._scalars['eval_loss'] = eval_loss
+        self._scalars['eval_loss_traj'] = eval_loss_traj
+        self._scalars['eval_loss_vel'] = eval_loss_vel
 
       print("[INFO] ({}) Epoch {:04d}; eval_loss: {:.4f}; eval_loss_traj: {:.4f}; lr: {:.2e}".format(
           thisname, e, eval_loss, eval_loss_traj, self._params['learning_rate'])+act_log)
@@ -896,7 +907,7 @@ class ModelFn(object):
     msre_ = msre_.mean().item()
 
     eval_loss = (srnn_loss, activity_loss, accuracy, srnn_loss_traj, srnn_loss_velocity) \
-        if self._params['predict_activity'] else srnn_loss 
+        if self._params['predict_activity'] else (srnn_loss, activity_loss, srnn_loss_traj, srnn_loss_velocity) 
     # run validation on different ranges
 
     mean_eval_error_dict,mean_eval_error_traj_dict = self.validation_srnn_ms(sample, decoder_pred,decoder_pred_traj)

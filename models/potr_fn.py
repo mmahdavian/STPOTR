@@ -124,9 +124,16 @@ def compute_stats3(pred, gt, mrt):
 
 def Calc_error_h36mdataset():
       parser = argparse.ArgumentParser()
-      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected1/config/config.json")
-      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected1/models/best_epoch_ade_0196.pt")
+#      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected6_best_sofar/config/config.json")
+#      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected6_best_sofar/models/best_epoch_fde_0034_best_sofar.pt")
+
+      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test24_ablation_256_32/config/config.json")
+      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test24_ablation_256_32/models/best_epoch_fde_0125.pt")
       parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
+#      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test21_best_sofar/config/config.json")
+#      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test21_best_sofar/models/best_epoch_fde_0002_best_sofar.pt")
+
+
       args = parser.parse_args()
 
       seq_shape = (15, 8, 25, 63)    
