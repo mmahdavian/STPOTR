@@ -63,6 +63,7 @@ from geometry_msgs.msg import PoseStamped
 from geometry_msgs.msg import Point
 from geometry_msgs.msg import Quaternion
 from std_msgs.msg import Float64MultiArray
+from visualization_msgs.msg import Marker
 from sympy import Point3D, Line3D
 
 
@@ -71,9 +72,10 @@ _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 class human_prediction():
-    def __init__(self,model):
+    def __init__(self,model,parents):
         rospy.init_node('listener', anonymous=True)
         self.model = model
+        self.parents = parents
         self.norm_stats = {}
         self.norm_stats['mean'] = np.array([ 0.00660166, -0.00322862, -0.00074547, -0.00221925,  0.32131838,
         0.05040703, -0.01361359,  0.69785828,  0.09532178, -0.00660162,
@@ -103,11 +105,15 @@ class human_prediction():
   #      self.obj_pub = rospy.Publisher('/obj_position', PointCloud , queue_size=1)    
         self.publisher = rospy.Publisher('/potrtr/predictions', Skeleton3DBuffer, queue_size=1)
         self.publisher_heading = rospy.Publisher('/move_base_simple/goal', PoseStamped, queue_size=1)
+        self.publisher_heading_marker = rospy.Publisher('/marker/heading', Marker, queue_size=1)
+        self.publisher_left = rospy.Publisher('/marker/left', Marker, queue_size=1)
+        self.publisher_right = rospy.Publisher('/marker/right', Marker, queue_size=1)
 
     
     def skeleton_to_inputs(self, skeletonbuffer):
 
         skeletonbuffer = np.array(skeletonbuffer.skeleton_3d_17_flat.data).reshape(skeletonbuffer.shape)
+        skeletonbuffer[:,:,1] = -skeletonbuffer[:,:,1]
         first_hip = skeletonbuffer[0:1,0:1,:]
 
         enc_input = skeletonbuffer[:,1:,:] - skeletonbuffer[:,0:1,:] 
@@ -199,11 +205,7 @@ class human_prediction():
         
         return [qx, qy, qz, qw]
   
-    def predictions_to_msg(self, prediction, trajectory, seq, first_hip):
-        
-        traj_pred = trajectory.reshape(20,1,3) #+ first_hip
-        pose_pred = prediction.reshape(20,16,3) + traj_pred
-        output = np.concatenate((traj_pred, pose_pred),axis=1)
+    def predictions_to_msg(self, output, seq):
 
         skeletonbuffer_msg = Skeleton3DBuffer()
         array_msg =  Float64MultiArray()
@@ -215,23 +217,18 @@ class human_prediction():
 
         return skeletonbuffer_msg
 
-    def goal_from_pose(self, pose, traj):
-        pose = pose.reshape(20,16,3)
-        a = pose[19,0]
-        b = pose[19,3]
-        c = traj[0, 19, 0:3]
+    def goal_from_pose(self, poses):
+        a = poses[19, 1, 0:3]
+        b = poses[19, 4, 0:3]
+        c = poses[19, 0, 0:3]
         msg = PoseStamped()
         msg.header.frame_id = 'camera'
         msg.pose.position.x = c[0]
         msg.pose.position.y = c[1]
-        msg.pose.position.z = c[2]
-
-        # p1, p2, p3 = Point3D(a[0], a[1], 0), Point3D(b[0], b[1], 0), Point3D(c[0], c[1], 0)
-        # L = Line3D(p1, p2)
-        # P = L.perpendicular_line(p3)
+        msg.pose.position.z = c[2]  
         
         orientation = np.arctan2(b[2]-a[2], b[0]-a[0])
-        quaternions = self.get_quaternion_from_euler(0, orientation, 0)
+        quaternions = self.get_quaternion_from_euler(0, orientation+np.pi/2, 0)
         msg.pose.orientation.x = quaternions[0]
         msg.pose.orientation.y = quaternions[1]
         msg.pose.orientation.z = quaternions[2]
@@ -239,7 +236,6 @@ class human_prediction():
         return msg
 
     def Predict(self,skeletonbuffer):
-# =============================================================================
         with torch.no_grad():
             enc_input, enc_traj, dec_input, dec_traj, first_hip = self.skeleton_to_inputs(skeletonbuffer) 
             enc_input_normalized = self.normalize_data(enc_input)
@@ -269,7 +265,7 @@ class human_prediction():
 #             dec_inputs_traj = torch.squeeze(dec_inputs_traj)
 # =============================================================================
             
-            t1 = time.time()
+#            t1 = time.time()
             prediction = model(
                 enc_inputs_normalized,
                 dec_inputs_normalized,
@@ -277,7 +273,7 @@ class human_prediction():
                 dec_inputs_traj_normalized,
                 get_attn_weights=True
             )
-            t2=time.time()
+ #           t2=time.time()
   
             classes = prediction[1]
             traj_prediction = prediction[-1]
@@ -287,10 +283,76 @@ class human_prediction():
             prediction = prediction[-1].cpu().numpy() #.reshape(20,16,3)
             preds = self.unnormalize_mine(prediction)
             preds_traj = self.unnormalize_mine_traj(traj_prediction)
-            self.publisher.publish(self.predictions_to_msg(preds,preds_traj, skeletonbuffer.seq, first_hip))    
-            self.publisher_heading.publish(self.goal_from_pose(preds, preds_traj))
-            maximum_estimation_time = params['target_seq_len']/params['frame_rate']
+
+            # batch=0
+            # fig = plt.figure(figsize=(4,4))
+            # ax = fig.add_subplot(111, projection='3d')
+            # ax.set_xlim3d([-1,1])
+            # ax.set_ylim3d([-1,1])
+            # ax.set_zlim3d([-1,1])
+
+            # for i in range(19,20):
+            #     pos = preds[batch][i].reshape(16,3)
+            #     pos = np.concatenate((np.array([[0,0,0]]),pos),axis=0) + preds_traj[batch][i]
+            #     for j, j_parent in enumerate(self.parents):    
+            #         if j_parent == -1:
+            #             continue                
+            #         ax.plot([pos[j, 0], pos[j_parent, 0]],
+            #                 [pos[j, 2], pos[j_parent, 2]],
+            #                 [pos[j, 1], pos[j_parent, 1]], zdir='y', c='blue')
+
+            # for i in range(5):
+            #     pos = enc_input[batch][i].reshape(16,3)
+            #     pos = np.concatenate((np.array([[0,0,0]]),pos),axis=0) + preds_traj[batch][i]
+            #     for j, j_parent in enumerate(self.parents):    
+            #         if j_parent == -1:
+            #             continue                
+            #         ax.plot([pos[j, 0], pos[j_parent, 0]],
+            #                 [pos[j, 2], pos[j_parent, 2]],
+            #                 [pos[j, 1], pos[j_parent, 1]], zdir='y', c='red')
+
+            # fig.savefig('test.png')
+
+            #------------
+            traj_pred = preds_traj.reshape(20,1,3) #+ first_hip
+            pose_pred = preds.reshape(20,16,3) + traj_pred
+            output = np.concatenate((traj_pred, pose_pred),axis=1)
+            output[:,:,1] = -output[:,:,1]
+            self.publisher.publish(self.predictions_to_msg(output ,skeletonbuffer.seq))    
+            self.publisher_heading.publish(self.goal_from_pose(output))
             
+            msg = Marker()
+            msg.type = 0
+            msg.scale.x = 1
+            msg.scale.y = 0.1
+            msg.scale.z = 0.1
+            msg.color.r = 1
+            msg.color.a = 0.5
+            pose_stamped = self.goal_from_pose(output)
+            msg.pose = pose_stamped.pose
+            msg.header = pose_stamped.header
+            self.publisher_heading_marker.publish(msg)
+            maximum_estimation_time = params['target_seq_len']/params['frame_rate']
+
+            msg.pose.position.x = output[19, 1, 0]
+            msg.pose.position.y = output[19, 1, 1]
+            msg.pose.position.z = output[19, 1, 2]
+            msg.scale.x = 0.2
+            msg.scale.y = 0.2
+            msg.scale.z = 0.2
+            msg.color.g = 1
+            msg.color.r = 0
+            msg.type = 2
+            self.publisher_left.publish(msg)
+
+            msg.pose.position.x = output[19, 4, 0]
+            msg.pose.position.y = output[19, 4, 1]
+            msg.pose.position.z = output[19, 4, 2]
+            msg.type = 2
+            msg.color.b = 1
+            msg.color.r = 0
+            self.publisher_right.publish(msg)
+
             self.my_counter +=1
 # =============================================================================
     
@@ -299,8 +361,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--config_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/config.json")
     parser.add_argument('--model_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/best_epoch_fde_0002_best_sofar.pt")
+    parser.add_argument('--data_path', type=str, default="/home/autolab/workspace/3dpose/potrtr/data/h3.6m/")
+
     args = parser.parse_args()
     params = json.load(open(args.config_file))
+    parents, offset, rot_ind, exp_map_ind = utils.load_constants(args.data_path)
 
     # train_dataset_fn, eval_dataset_fn = tr_fn.dataset_factory_total(params)
     
@@ -326,7 +391,7 @@ if __name__ == '__main__':
     model.to(_DEVICE)
     model.eval()
               
-    human_prediction(model)
+    human_prediction(model,parents)
     rospy.spin()
     
     
