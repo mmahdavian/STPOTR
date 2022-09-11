@@ -84,7 +84,6 @@ class PoseTransformer(nn.Module):
                copy_method='uniform_scan',
                query_selection=False,
                include_last_obs=False,
-               end_attention=True,
                pos_encoding_params=(10000, 1)):
     """Initialization of pose transformers."""
     super(PoseTransformer, self).__init__()
@@ -122,7 +121,6 @@ class PoseTransformer(nn.Module):
         use_query_embedding=use_query_embedding,
         pre_normalization=pre_normalization,
         query_selection=query_selection,
-        end_attention=end_attention,
         target_seq_len=target_seq_length
     )
 
@@ -544,7 +542,6 @@ def model_factory(params, pose_embedding_fn, pose_decoder_fn, traj_embedding_fn,
       traj_decoder=traj_decoder_fn(params),
       query_selection=params['query_selection'],
       include_last_obs=params['include_last_obs'],
-      end_attention=params['end_attention'],
       pos_encoding_params=(params['pos_enc_beta'], params['pos_enc_alpha'])
   )
 

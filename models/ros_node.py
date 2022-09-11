@@ -80,23 +80,11 @@ class human_prediction():
         self.norm_stats['mean'] = np.array([ 0.00660166, -0.00322862, -0.00074547, -0.00221925,  0.32131838,
         0.05040703, -0.01361359,  0.69785828,  0.09532178, -0.00660162,
         0.00322858,  0.00074546, -0.01506641,  0.32316435,  0.05134183,
-       -0.02408792,  0.70626347,  0.09823843,  0.00577709, -0.21263408,
-       -0.02852573,  0.01207891, -0.43795797, -0.05560767,  0.01407008,
-       -0.49628542, -0.05891722,  0.01702867, -0.58822308, -0.07295712,
-        0.00417502, -0.38859674, -0.04970666, -0.0071068 , -0.19491813,
-       -0.02284074, -0.00568425, -0.13399005, -0.00880117,  0.0170771 ,
-       -0.38437933, -0.04920271,  0.01767753, -0.19377204, -0.02285681,
-        0.01422233, -0.16066915, -0.01378928])
+       -0.02408792,  0.70626347,  0.09823843])
         self.norm_stats['std'] = np.array([0.09752762, 0.02463142, 0.08864842, 0.18086745, 0.19258509,
        0.19703887, 0.2124409 , 0.24669765, 0.24913149, 0.09752732,
        0.02463133, 0.08864804, 0.18512949, 0.20038966, 0.20181931,
-       0.21314536, 0.25163   , 0.25110496, 0.05994541, 0.05127974,
-       0.07128643, 0.11012195, 0.09926957, 0.13492376, 0.13778828,
-       0.12397334, 0.16564003, 0.14164487, 0.12879104, 0.17520238,
-       0.14193176, 0.09618481, 0.15208769, 0.2274719 , 0.13292273,
-       0.22023694, 0.24284202, 0.22032088, 0.24409384, 0.1440386 ,
-       0.09937461, 0.15516004, 0.23021911, 0.14233924, 0.22319722,
-       0.24973414, 0.23667015, 0.25038966])
+       0.21314536, 0.25163   , 0.25110496])
         self.norm_stats['mean_traj'] = np.array([-0.3049573 , -0.24428056,  2.96069035])
         self.norm_stats['std_traj'] = np.array([1.53404053, 0.33958351, 3.70011473])
 
@@ -113,17 +101,18 @@ class human_prediction():
     def skeleton_to_inputs(self, skeletonbuffer):
 
         skeletonbuffer = np.array(skeletonbuffer.skeleton_3d_17_flat.data).reshape(skeletonbuffer.shape)
-        skeletonbuffer[:,:,1] = -skeletonbuffer[:,:,1]
+        skeletonbuffer[:, :, 1:3] = skeletonbuffer[:, :, 2:0:-1]
+        skeletonbuffer[:,:,1] = skeletonbuffer[:,:,1]
         first_hip = skeletonbuffer[0:1,0:1,:]
 
-        enc_input = skeletonbuffer[:,1:,:] - skeletonbuffer[:,0:1,:] 
+        enc_input = skeletonbuffer[:,1:7,:] - skeletonbuffer[:,0:1,:] 
         enc_traj = skeletonbuffer[:,0:1,:]
         dec_input = np.array([enc_input[-1,:,:]]*20)
         dec_traj = np.array([enc_traj[-1,:,:]]*20)
 
-        enc_input = np.array(enc_input).reshape(1,5,48) #reshape (5,3,16) to (5,48)
+        enc_input = np.array(enc_input).reshape(1,5,18) #reshape (5,3,6) to (5,18)
         enc_traj = np.array(enc_traj).reshape(1,5,3)
-        dec_input = np.array(dec_input).reshape(1, 20,48)
+        dec_input = np.array(dec_input).reshape(1, 20,18)
         dec_traj = np.array(dec_traj).reshape(1,20,3)
         return enc_input, enc_traj, dec_input, dec_traj, first_hip
 
@@ -153,13 +142,13 @@ class human_prediction():
         Numpy array of shape [batch_size, seq_length, 99]
         """
         batch_size, seq_length, D = data.shape
-        dof = D//16
+        dof = D//6
 
         # unnormalize input sequence
         sequence = data*self.norm_stats['std'] + self.norm_stats['mean']
 
         # batch_size x seq_length x n_major_joints x dof (or joint dim)
-        sequence = sequence.reshape((batch_size, seq_length, 16, dof))
+        sequence = sequence.reshape((batch_size, seq_length, 6, dof))
         sequence = np.reshape(sequence, [batch_size, seq_length, -1])
         return sequence
 
@@ -217,18 +206,19 @@ class human_prediction():
 
         return skeletonbuffer_msg
 
-    def goal_from_pose(self, poses):
-        a = poses[19, 1, 0:3]
-        b = poses[19, 4, 0:3]
-        c = poses[19, 0, 0:3]
+    def goal_from_pose(self, poses, index=19, ahead=0):
+        a = poses[index, 1, 0:3]
+        b = poses[index, 4, 0:3]
+        c = poses[index, 0, 0:3]
         msg = PoseStamped()
-        msg.header.frame_id = 'camera'
-        msg.pose.position.x = c[0]
-        msg.pose.position.y = c[1]
-        msg.pose.position.z = c[2]  
+        orientation = np.arctan2(b[1]-a[1], b[0]-a[0]) + np.pi/2
         
-        orientation = np.arctan2(b[2]-a[2], b[0]-a[0])
-        quaternions = self.get_quaternion_from_euler(0, orientation+np.pi/2, 0)
+        msg.header.frame_id = 'camera'
+        msg.pose.position.x = c[0] + np.cos(orientation) * ahead
+        msg.pose.position.y = c[1] + np.sin(orientation) * ahead
+        msg.pose.position.z = 0
+        
+        quaternions = self.get_quaternion_from_euler(0, 0, orientation)
         msg.pose.orientation.x = quaternions[0]
         msg.pose.orientation.y = quaternions[1]
         msg.pose.orientation.z = quaternions[2]
@@ -280,19 +270,19 @@ class human_prediction():
             traj_prediction = traj_prediction[-1].cpu().numpy() #.reshape(20,1,3)
   
             prediction = prediction[0]
-            prediction = prediction[-1].cpu().numpy() #.reshape(20,16,3)
+            prediction = prediction[-1].cpu().numpy() #.reshape(20,6,3)
             preds = self.unnormalize_mine(prediction)
             preds_traj = self.unnormalize_mine_traj(traj_prediction)
 
-            # batch=0
+            # # batch=0
             # fig = plt.figure(figsize=(4,4))
             # ax = fig.add_subplot(111, projection='3d')
             # ax.set_xlim3d([-1,1])
             # ax.set_ylim3d([-1,1])
             # ax.set_zlim3d([-1,1])
 
-            # for i in range(19,20):
-            #     pos = preds[batch][i].reshape(16,3)
+            # for i in range(20):
+            #     pos = preds[batch][i].reshape(6,3)
             #     pos = np.concatenate((np.array([[0,0,0]]),pos),axis=0) + preds_traj[batch][i]
             #     for j, j_parent in enumerate(self.parents):    
             #         if j_parent == -1:
@@ -302,8 +292,8 @@ class human_prediction():
             #                 [pos[j, 1], pos[j_parent, 1]], zdir='y', c='blue')
 
             # for i in range(5):
-            #     pos = enc_input[batch][i].reshape(16,3)
-            #     pos = np.concatenate((np.array([[0,0,0]]),pos),axis=0) + preds_traj[batch][i]
+            #     pos = enc_input[batch][i].reshape(6,3)
+            #     pos = np.concatenate((np.array([[0,0,0]]),pos),axis=0) + enc_traj[batch][i]
             #     for j, j_parent in enumerate(self.parents):    
             #         if j_parent == -1:
             #             continue                
@@ -315,11 +305,13 @@ class human_prediction():
 
             #------------
             traj_pred = preds_traj.reshape(20,1,3) #+ first_hip
-            pose_pred = preds.reshape(20,16,3) + traj_pred
+            pose_pred = preds.reshape(20,6,3) + traj_pred
             output = np.concatenate((traj_pred, pose_pred),axis=1)
-            output[:,:,1] = -output[:,:,1]
+            output[:, :, 1:3] = output[:, :, 2:0:-1]
+            output[:,:,1] = output[:,:,1]
             self.publisher.publish(self.predictions_to_msg(output ,skeletonbuffer.seq))    
-            self.publisher_heading.publish(self.goal_from_pose(output))
+            index_pose = 10
+            self.publisher_heading.publish(self.goal_from_pose(output, index=index_pose, ahead=2))
             
             msg = Marker()
             msg.type = 0
@@ -328,15 +320,18 @@ class human_prediction():
             msg.scale.z = 0.1
             msg.color.r = 1
             msg.color.a = 0.5
-            pose_stamped = self.goal_from_pose(output)
+            pose_stamped = self.goal_from_pose(output, index=index_pose)
             msg.pose = pose_stamped.pose
+            # msg.pose.position.x = output[5, 0, 0]
+            # msg.pose.position.y = output[5, 0, 1]
+            # msg.pose.position.z = output[5, 0, 2]
             msg.header = pose_stamped.header
             self.publisher_heading_marker.publish(msg)
             maximum_estimation_time = params['target_seq_len']/params['frame_rate']
 
-            msg.pose.position.x = output[19, 1, 0]
-            msg.pose.position.y = output[19, 1, 1]
-            msg.pose.position.z = output[19, 1, 2]
+            msg.pose.position.x = output[index_pose, 1, 0]
+            msg.pose.position.y = output[index_pose, 1, 1]
+            msg.pose.position.z = output[index_pose, 1, 2]
             msg.scale.x = 0.2
             msg.scale.y = 0.2
             msg.scale.z = 0.2
@@ -345,9 +340,9 @@ class human_prediction():
             msg.type = 2
             self.publisher_left.publish(msg)
 
-            msg.pose.position.x = output[19, 4, 0]
-            msg.pose.position.y = output[19, 4, 1]
-            msg.pose.position.z = output[19, 4, 2]
+            msg.pose.position.x = output[index_pose, 4, 0]
+            msg.pose.position.y = output[index_pose, 4, 1]
+            msg.pose.position.z = output[index_pose, 4, 2]
             msg.type = 2
             msg.color.b = 1
             msg.color.r = 0
@@ -359,8 +354,8 @@ class human_prediction():
  
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--config_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/config.json")
-    parser.add_argument('--model_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/best_epoch_fde_0002_best_sofar.pt")
+    parser.add_argument('--config_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/legs_noisy/config.json")
+    parser.add_argument('--model_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/legs_noisy/best_epoch_fde_0173.pt")
     parser.add_argument('--data_path', type=str, default="/home/autolab/workspace/3dpose/potrtr/data/h3.6m/")
 
     args = parser.parse_args()

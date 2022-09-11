@@ -769,7 +769,7 @@ class H36MDataset(torch.utils.data.Dataset):
 #    all_dataset_ = []
     all_traj=[]
 #    all_traj_=[]
-    data_address = '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/data_3d_h36m.npz'
+    data_address = '/home/autolab/workspace/3dpose/potrtr/data/data_3d_h36m.npz'
     my_data = np.load(data_address, allow_pickle=True)['positions_3d'].item()
     dataset = Human36mDataset(data_address)       
 
@@ -891,7 +891,7 @@ class H36MDataset(torch.utils.data.Dataset):
     dataset_path = os.path.join(self._params['data_path'], 'dataset')
 
 
-    data_address = '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/data_3d_h36m.npz'
+    data_address = '/home/autolab/workspace/3dpose/potrtr/data/data_3d_h36m.npz'
     my_data = np.load(data_address, allow_pickle=True)['positions_3d'].item()
     dataset = Human36mDataset(data_address)       
 

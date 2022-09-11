@@ -127,9 +127,9 @@ def Calc_error_h36mdataset():
 #      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected6_best_sofar/config/config.json")
 #      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/training/corrected6_best_sofar/models/best_epoch_fde_0034_best_sofar.pt")
 
-      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test24_ablation_256_32/config/config.json")
-      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test24_ablation_256_32/models/best_epoch_fde_0125.pt")
-      parser.add_argument('--data_path', type=str, default="/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/h3.6m/")
+      parser.add_argument('--config_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/config.json")
+      parser.add_argument('--model_file', type=str,default="/home/autolab/workspace/3dpose/potrtr/training/model/best_epoch_fde_0002_best_sofar.pt")
+      parser.add_argument('--data_path', type=str, default="/home/autolab/workspace/3dpose/potrtr/data/h3.6m/")
 #      parser.add_argument('--config_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test21_best_sofar/config/config.json")
 #      parser.add_argument('--model_file', type=str,default="/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test21_best_sofar/models/best_epoch_fde_0002_best_sofar.pt")
 
@@ -247,45 +247,47 @@ def Calc_error_h36mdataset():
 #              gts_traj,
 #              get_attn_weights=True
 #          )
-          prediction = model(
-              enc_inputs,
-              dec_inputs,
-              enc_inputs_traj,
-              dec_inputs_traj,
-              get_attn_weights=True
-          )
-
-
-          classes = prediction[1]
-          traj_prediction = prediction[-1]
-          traj_prediction = traj_prediction[-1].cpu().numpy()
-
-          prediction = prediction[0]
-          prediction = prediction[-1].cpu().numpy()
-
-          preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
-          preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
-          
-          maximum_estimation_time = params['target_seq_len']/params['frame_rate']
-          
-          errors = compute_stats3(preds,gts,maximum_estimation_time)
-          ADE = compute_ade2(preds,gts)
-          FDE = compute_fde2(preds,gts)
-          total_errors += np.array(errors)      
-          total_ade += ADE
-          total_fde += FDE  
-          
-          errors_traj = compute_stats3(preds_traj,gts_traj,maximum_estimation_time)
-          ADE_traj = compute_ade2(preds_traj,gts_traj)
-          FDE_traj = compute_fde2(preds_traj,gts_traj)
-          total_errors_traj += np.array(errors_traj)      
-          total_ade_traj += ADE_traj
-          total_fde_traj += FDE_traj
-          
-          print(ADE,FDE,ADE_traj,FDE_traj)
-
-          my_counter +=1
+          for ii in range(enc_inputs.shape[0]//16-1):
               
+            prediction = model(
+                enc_inputs[ii*16:(ii+1)*16],
+                dec_inputs[ii*16:(ii+1)*16],
+                enc_inputs_traj[ii*16:(ii+1)*16],
+                dec_inputs_traj[ii*16:(ii+1)*16],
+                get_attn_weights=True
+            )
+
+
+            classes = prediction[1]
+            traj_prediction = prediction[-1]
+            traj_prediction = traj_prediction[-1].cpu().numpy()
+
+            prediction = prediction[0]
+            prediction = prediction[-1].cpu().numpy()
+
+            preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
+            preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
+            
+            maximum_estimation_time = params['target_seq_len']/params['frame_rate']
+            
+            errors = compute_stats3(preds,gts[ii*16:(ii+1)*16],maximum_estimation_time)
+            ADE = compute_ade2(preds,gts[ii*16:(ii+1)*16])
+            FDE = compute_fde2(preds,gts[ii*16:(ii+1)*16])
+            total_errors += np.array(errors)      
+            total_ade += ADE
+            total_fde += FDE  
+            
+            errors_traj = compute_stats3(preds_traj,gts_traj[ii*16:(ii+1)*16],maximum_estimation_time)
+            ADE_traj = compute_ade2(preds_traj,gts_traj[ii*16:(ii+1)*16])
+            FDE_traj = compute_fde2(preds_traj,gts_traj[ii*16:(ii+1)*16])
+            total_errors_traj += np.array(errors_traj)      
+            total_ade_traj += ADE_traj
+            total_fde_traj += FDE_traj
+            
+            print(ADE,FDE,ADE_traj,FDE_traj)
+
+            my_counter +=1
+                
       maximum_time = params['target_seq_len']/params['frame_rate']
       
       total_errors = total_errors/my_counter
