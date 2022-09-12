@@ -32,6 +32,8 @@ import argparse
 import json
 import time
 import cv2
+import tf2_ros
+import tf2_geometry_msgs
 
 from matplotlib import image
 from matplotlib import pyplot as plt
@@ -70,6 +72,45 @@ from sympy import Point3D, Line3D
 _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 #_DEVICE = torch.device('cpu')
 
+def quaternion_to_rotation_matrix(Q):
+    """
+    Covert a quaternion into a full three-dimensional rotation matrix.
+ 
+    Input
+    :param Q: A 4 element array representing the quaternion (q0,q1,q2,q3) 
+ 
+    Output
+    :return: A 3x3 element matrix representing the full 3D rotation matrix. 
+             This rotation matrix converts a point in the local reference 
+             frame to a point in the global reference frame.
+    """
+    # Extract the values from Q
+    q0 = Q[3]
+    q1 = Q[0]
+    q2 = Q[1]
+    q3 = Q[2]
+     
+    # First row of the rotation matrix
+    r00 = 2 * (q0 * q0 + q1 * q1) - 1
+    r01 = 2 * (q1 * q2 - q0 * q3)
+    r02 = 2 * (q1 * q3 + q0 * q2)
+     
+    # Second row of the rotation matrix
+    r10 = 2 * (q1 * q2 + q0 * q3)
+    r11 = 2 * (q0 * q0 + q2 * q2) - 1
+    r12 = 2 * (q2 * q3 - q0 * q1)
+     
+    # Third row of the rotation matrix
+    r20 = 2 * (q1 * q3 - q0 * q2)
+    r21 = 2 * (q2 * q3 + q0 * q1)
+    r22 = 2 * (q0 * q0 + q3 * q3) - 1
+     
+    # 3x3 rotation matrix
+    rot_matrix = np.array([[r00, r01, r02],
+                           [r10, r11, r12],
+                           [r20, r21, r22]])
+                            
+    return rot_matrix
 
 class human_prediction():
     def __init__(self,model,parents):
@@ -87,6 +128,8 @@ class human_prediction():
        0.21314536, 0.25163   , 0.25110496])
         self.norm_stats['mean_traj'] = np.array([-0.3049573 , -0.24428056,  2.96069035])
         self.norm_stats['std_traj'] = np.array([1.53404053, 0.33958351, 3.70011473])
+        self.tf_buffer = tf2_ros.Buffer(rospy.Duration(100.0))  # tf buffer length
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
         self.skeleton_subscriber = rospy.Subscriber("/pose_publisher/3DSkeletonBuffer", Skeleton3DBuffer, self.Predict)
         self.my_counter = 0
@@ -205,6 +248,19 @@ class human_prediction():
         skeletonbuffer_msg.seq = seq
 
         return skeletonbuffer_msg
+    
+    def get_transform_camera_world(self, pose_stamped):
+        transform = self.tf_buffer.lookup_transform('world',
+                                       # source frame:
+                                       pose_stamped.header.frame_id,
+                                       # get the tf at the time the pose was valid
+                                       pose_stamped.header.stamp,
+                                       # wait for at most 1 second for transform, otherwise throw
+                                       rospy.Duration(1.0))
+
+        pose_transformed = tf2_geometry_msgs.do_transform_pose(pose_stamped, transform)
+        return pose_transformed
+
 
     def goal_from_pose(self, poses, index=19, ahead=0):
         a = poses[index, 1, 0:3]
@@ -223,7 +279,8 @@ class human_prediction():
         msg.pose.orientation.y = quaternions[1]
         msg.pose.orientation.z = quaternions[2]
         msg.pose.orientation.w = quaternions[3]
-        return msg
+        new_msg = self.get_transform_camera_world(msg)
+        return new_msg
 
     def Predict(self,skeletonbuffer):
         with torch.no_grad():
