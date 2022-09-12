@@ -67,6 +67,10 @@ from geometry_msgs.msg import Quaternion
 from std_msgs.msg import Float64MultiArray
 from visualization_msgs.msg import Marker
 from sympy import Point3D, Line3D
+from sensor_msgs.msg import PointCloud
+from geometry_msgs.msg import Point32
+from std_msgs.msg import Header
+
 
 
 _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -131,7 +135,7 @@ class human_prediction():
         self.tf_buffer = tf2_ros.Buffer(rospy.Duration(100.0))  # tf buffer length
         self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
-        self.skeleton_subscriber = rospy.Subscriber("/pose_publisher/3DSkeletonBuffer", Skeleton3DBuffer, self.Predict)
+        self.skeleton_subscriber = rospy.Subscriber("/pose_publisher/3DSkeletonBuffer", Skeleton3DBuffer, self.Predict, queue_size=1)
         self.my_counter = 0
   #      self.obj_pub = rospy.Publisher('/obj_position', PointCloud , queue_size=1)    
         self.publisher = rospy.Publisher('/potrtr/predictions', Skeleton3DBuffer, queue_size=1)
@@ -139,11 +143,15 @@ class human_prediction():
         self.publisher_heading_marker = rospy.Publisher('/marker/heading', Marker, queue_size=1)
         self.publisher_left = rospy.Publisher('/marker/left', Marker, queue_size=1)
         self.publisher_right = rospy.Publisher('/marker/right', Marker, queue_size=1)
+        self.pc2_publisher = []
+        for i in range(20):
+            self.pc2_publisher.append(rospy.Publisher('/pose_publisher/pred'+str(i), PointCloud, queue_size=1))
+
 
     
     def skeleton_to_inputs(self, skeletonbuffer):
 
-        skeletonbuffer = np.array(skeletonbuffer.skeleton_3d_17_flat.data).reshape(skeletonbuffer.shape)
+        skeletonbuffer = np.array(skeletonbuffer.skeleton_3d_17_flat.data).reshape(skeletonbuffer.skeleton_3d_17_flat_shape)
         skeletonbuffer[:, :, 1:3] = skeletonbuffer[:, :, 2:0:-1]
         skeletonbuffer[:,:,1] = skeletonbuffer[:,:,1]
         first_hip = skeletonbuffer[0:1,0:1,:]
@@ -237,26 +245,59 @@ class human_prediction():
         
         return [qx, qy, qz, qw]
   
-    def predictions_to_msg(self, output, seq):
+    # def predictions_to_msg(self, output, seq):
 
-        skeletonbuffer_msg = Skeleton3DBuffer()
-        array_msg =  Float64MultiArray()
-        array_msg.data = output.flatten()
+    #     skeletonbuffer_msg = Skeleton3DBuffer()
+    #     array_msg =  Float64MultiArray()
+    #     array_msg.data = output.flatten()
 
-        skeletonbuffer_msg.skeleton_3d_17_flat = array_msg
-        skeletonbuffer_msg.shape = output.shape
-        skeletonbuffer_msg.seq = seq
+    #     skeletonbuffer_msg.skeleton_3d_17_flat = array_msg
+    #     skeletonbuffer_msg.shape = output.shape
+    #     skeletonbuffer_msg.seq = seq
 
-        return skeletonbuffer_msg
+    #     return skeletonbuffer_msg
     
+    def pose_transform(self, skeleton_buffer, Transform):
+        skeleton_buffer = np.concatenate((skeleton_buffer, np.ones((skeleton_buffer.shape[0],skeleton_buffer.shape[1],1))),axis=2)
+        skeleton_buffer_shape = skeleton_buffer.shape
+        skeleton_buffer = np.reshape(skeleton_buffer, (skeleton_buffer_shape[0]*skeleton_buffer_shape[1],skeleton_buffer_shape[2]))
+        skeleton_buffer_t = np.transpose(skeleton_buffer)
+        skeleton_buffer_t = np.matmul(Transform, skeleton_buffer_t)
+        skeleton_buffer = np.transpose(skeleton_buffer_t)
+        skeleton_buffer = np.reshape(skeleton_buffer, (skeleton_buffer_shape[0],skeleton_buffer_shape[1],skeleton_buffer_shape[2]))
+        return skeleton_buffer[:,:,:3]
+
+    def predictions_to_pointcloud(self, predictions, transform, transform_shape):
+        transform = np.array(transform).reshape(transform_shape)
+        predictions_global_frame = self.pose_transform(predictions, transform)
+        # for i in range(20):
+        i = 19
+        self.pc2_publisher[i].publish(self.get_point_clouds(predictions_global_frame[i,:,:], relative_to="world"))
+                           
+    def get_point_clouds(self, skeleton_3d, relative_to="world"):
+        pc = PointCloud()
+        pc.header.stamp = rospy.Time.now()
+        pc.header.frame_id = relative_to
+        for i in range(skeleton_3d.shape[0]):
+            pc.points.append(Point32(x=skeleton_3d[i][0],y=skeleton_3d[i][1],z=skeleton_3d[i][2]))
+        return pc
+
     def get_transform_camera_world(self, pose_stamped):
-        transform = self.tf_buffer.lookup_transform('world',
-                                       # source frame:
-                                       pose_stamped.header.frame_id,
-                                       # get the tf at the time the pose was valid
-                                       pose_stamped.header.stamp,
-                                       # wait for at most 1 second for transform, otherwise throw
-                                       rospy.Duration(1.0))
+        not_found = True
+        while not_found:
+            try:
+                transform = self.tf_buffer.lookup_transform('world',
+                                               # source frame:
+                                               pose_stamped.header.frame_id,
+                                               # get the tf at the time the pose was valid
+                                               pose_stamped.header.stamp,
+                                               # wait for at most 1 second for transform, otherwise throw
+                                               rospy.Duration(1.0))
+                not_found = False
+                time.sleep(0.05)
+            except Exception as e:
+                print(e)
+    
 
         pose_transformed = tf2_geometry_msgs.do_transform_pose(pose_stamped, transform)
         return pose_transformed
@@ -270,6 +311,7 @@ class human_prediction():
         orientation = np.arctan2(b[1]-a[1], b[0]-a[0]) + np.pi/2
         
         msg.header.frame_id = 'camera'
+        msg.header.stamp = rospy.Time.now()
         msg.pose.position.x = c[0] + np.cos(orientation) * ahead
         msg.pose.position.y = c[1] + np.sin(orientation) * ahead
         msg.pose.position.z = 0
@@ -366,7 +408,8 @@ class human_prediction():
             output = np.concatenate((traj_pred, pose_pred),axis=1)
             output[:, :, 1:3] = output[:, :, 2:0:-1]
             output[:,:,1] = output[:,:,1]
-            self.publisher.publish(self.predictions_to_msg(output ,skeletonbuffer.seq))    
+            # self.publisher.publish(self.predictions_to_msg(output ,skeletonbuffer.seq))    
+            # self.predictions_to_pointcloud(output, skeletonbuffer.transform.data, skeletonbuffer.transform_shape)
             index_pose = 10
             self.publisher_heading.publish(self.goal_from_pose(output, index=index_pose, ahead=2))
             
