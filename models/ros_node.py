@@ -429,24 +429,24 @@ class human_prediction():
             self.publisher_heading_marker.publish(msg)
             maximum_estimation_time = params['target_seq_len']/params['frame_rate']
 
-            msg.pose.position.x = output[index_pose, 1, 0]
-            msg.pose.position.y = output[index_pose, 1, 1]
-            msg.pose.position.z = output[index_pose, 1, 2]
-            msg.scale.x = 0.2
-            msg.scale.y = 0.2
-            msg.scale.z = 0.2
-            msg.color.g = 1
-            msg.color.r = 0
-            msg.type = 2
-            self.publisher_left.publish(msg)
+            # msg.pose.position.x = output[index_pose, 1, 0]
+            # msg.pose.position.y = output[index_pose, 1, 1]
+            # msg.pose.position.z = output[index_pose, 1, 2]
+            # msg.scale.x = 0.2
+            # msg.scale.y = 0.2
+            # msg.scale.z = 0.2
+            # msg.color.g = 1
+            # msg.color.r = 0
+            # msg.type = 2
+            # self.publisher_left.publish(msg)
 
-            msg.pose.position.x = output[index_pose, 4, 0]
-            msg.pose.position.y = output[index_pose, 4, 1]
-            msg.pose.position.z = output[index_pose, 4, 2]
-            msg.type = 2
-            msg.color.b = 1
-            msg.color.r = 0
-            self.publisher_right.publish(msg)
+            # msg.pose.position.x = output[index_pose, 4, 0]
+            # msg.pose.position.y = output[index_pose, 4, 1]
+            # msg.pose.position.z = output[index_pose, 4, 2]
+            # msg.type = 2
+            # msg.color.b = 1
+            # msg.color.r = 0
+            # self.publisher_right.publish(msg)
 
             self.my_counter +=1
 # =============================================================================
