@@ -160,7 +160,7 @@ def dataset_factory(params):
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
-  parser.add_argument('--model_prefix', type=str, default='')
+  parser.add_argument('--model_prefix', type=str, default='trained_model')
   parser.add_argument('--batch_size', type=int, default=16)
   parser.add_argument('--data_path', type=str,default='../data/h3.6m/')
   parser.add_argument('--learning_rate', type=float, default=1e-4)

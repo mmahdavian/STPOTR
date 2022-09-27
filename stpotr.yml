@@ -6,7 +6,7 @@ https://conda.anaconda.org/anaconda/linux-64/_libgcc_mutex-0.1-main.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/_tflow_select-2.3.0-mkl.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/blas-1.0-mkl.tar.bz2
 https://repo.anaconda.com/pkgs/main/linux-64/ca-certificates-2022.4.26-h06a4308_0.conda
-file:///home/mohammad/Downloads/cudatoolkit-11.1.1-ha002fc5_10.tar.bz2
+https://anaconda.org/conda-forge/cudatoolkit/11.1.1/download/linux-64/cudatoolkit-11.1.1-ha002fc5_10.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/intel-openmp-2020.2-254.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/ld_impl_linux-64-2.33.1-h53a641e_7.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/libgcc-ng-9.1.0-hdf63c60_0.tar.bz2
@@ -215,7 +215,7 @@ https://conda.anaconda.org/conda-forge/linux-64/pyqt-5.12.3-py38ha8c2ead_4.tar.b
 https://conda.anaconda.org/anaconda/noarch/python-dateutil-2.8.1-py_0.tar.bz2
 https://repo.anaconda.com/pkgs/main/noarch/python-lsp-jsonrpc-1.0.0-pyhd3eb1b0_0.conda
 https://repo.anaconda.com/pkgs/main/noarch/python-slugify-5.0.2-pyhd3eb1b0_0.conda
-file:///home/mohammad/Downloads/pytorch-1.10.0-py3.8_cuda11.1_cudnn8.0.5_0.tar.bz2
+https://anaconda.org/pytorch/pytorch/1.10.0/download/linux-64/pytorch-1.10.0-py3.8_cuda11.1_cudnn8.0.5_0.tar.bz2
 https://repo.anaconda.com/pkgs/main/noarch/qstylizer-0.1.10-pyhd3eb1b0_0.conda
 https://conda.anaconda.org/conda-forge/noarch/rsa-4.6-pyh9f0ad1d_0.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/setuptools-49.6.0-py38_1.tar.bz2
@@ -267,7 +267,7 @@ https://repo.anaconda.com/pkgs/main/noarch/sphinx-4.2.0-pyhd3eb1b0_1.conda
 https://conda.anaconda.org/anaconda/noarch/google-auth-oauthlib-0.4.1-py_2.tar.bz2
 https://repo.anaconda.com/pkgs/main/noarch/numpydoc-1.2-pyhd3eb1b0_0.conda
 https://conda.anaconda.org/anaconda/linux-64/spyder-5.1.5-py38h06a4308_1.tar.bz2
-file:///home/mohammad/Downloads/torchvision-0.11.1-py38_cu111.tar.bz2
+https://anaconda.org/pytorch/torchvision/0.11.1/download/linux-64/torchvision-0.11.1-py38_cu111.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/h5py-2.10.0-py38hd6299e0_1.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/matplotlib-3.3.2-0.tar.bz2
 https://conda.anaconda.org/anaconda/linux-64/mkl_random-1.1.1-py38h0573a6f_0.tar.bz2
