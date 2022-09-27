@@ -1,25 +1,26 @@
 ###############################################################################
-# Pose Transformers (POTR): Human Motion Prediction with Non-Autoregressive 
-# Transformers
+# (STPOTR): Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
+# Copyright (c) 2022 MARS Lab at Simon Fraser University
 # Written by 
-# Angel Martinez <angel.martinez@idiap.ch>,
+# Mohammad Mahdavian <mmahdavi@sfu.ca>,
 # 
 # This file is part of 
-# POTR: Human Motion Prediction with Non-Autoregressive Transformers
+# STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# POTR is free software: you can redistribute it and/or modify
+# STPOTR is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation.
 # 
-# POTR is distributed in the hope that it will be useful,
+# STPOTR is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with POTR. If not, see <http://www.gnu.org/licenses/>.
+# along with STPOTR. If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
 """Implementation of the Transformer for sequence-to-sequence decoding.
@@ -56,7 +57,7 @@ _POSE_DIM = 54
 _PAD_LENGTH = _SOURCE_LENGTH
 
 
-class PoseTransformer(nn.Module):
+class STPoseTransformer(nn.Module):
   """Implements the sequence-to-sequence Transformer .model for pose prediction."""
   def __init__(self,
                pose_dim=_POSE_DIM,
@@ -84,10 +85,9 @@ class PoseTransformer(nn.Module):
                copy_method='uniform_scan',
                query_selection=False,
                include_last_obs=False,
-               end_attention=True,
                pos_encoding_params=(10000, 1)):
     """Initialization of pose transformers."""
-    super(PoseTransformer, self).__init__()
+    super(STPoseTransformer, self).__init__()
     self._target_seq_length = target_seq_length
     self._source_seq_length = source_seq_length
     self._pose_dim = pose_dim
@@ -122,7 +122,6 @@ class PoseTransformer(nn.Module):
         use_query_embedding=use_query_embedding,
         pre_normalization=pre_normalization,
         query_selection=query_selection,
-        end_attention=end_attention,
         target_seq_len=target_seq_length
     )
 
@@ -519,7 +518,7 @@ class PoseTransformer(nn.Module):
 def model_factory(params, pose_embedding_fn, pose_decoder_fn, traj_embedding_fn, traj_decoder_fn):
   init_fn = utils.normal_init_ \
       if params['init_fn'] == 'normal_init' else utils.xavier_init_
-  return PoseTransformer(
+  return STPoseTransformer(
       pose_dim=params['pose_dim'],
       input_dim=params['input_dim'],
       model_dim=params['model_dim'],
@@ -544,13 +543,12 @@ def model_factory(params, pose_embedding_fn, pose_decoder_fn, traj_embedding_fn,
       traj_decoder=traj_decoder_fn(params),
       query_selection=params['query_selection'],
       include_last_obs=params['include_last_obs'],
-      end_attention=params['end_attention'],
       pos_encoding_params=(params['pos_enc_beta'], params['pos_enc_alpha'])
   )
 
 
 if __name__ == '__main__':
-  transformer = PoseTransformer(model_dim=_POSE_DIM, num_heads=6)
+  transformer = STPoseTransformer(model_dim=_POSE_DIM, num_heads=6)
   transformer.eval()
   batch_size = 8
   model_dim = 256

@@ -1,27 +1,27 @@
 ###############################################################################
-# Pose Transformers (POTR): Human Motion Prediction with Non-Autoregressive 
-# Transformers
+# (STPOTR): Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
+# Copyright (c) 2022 MARS Lab at Simon Fraser University
 # Written by 
-# Angel Martinez <angel.martinez@idiap.ch>,
+# Mohammad Mahdavian <mmahdavi@sfu.ca>,
 # 
 # This file is part of 
-# POTR: Human Motion Prediction with Non-Autoregressive Transformers
+# STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# POTR is free software: you can redistribute it and/or modify
+# STPOTR is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation.
 # 
-# POTR is distributed in the hope that it will be useful,
+# STPOTR is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with POTR. If not, see <http://www.gnu.org/licenses/>.
+# along with STPOTR. If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
-
 
 """Human 3.6 M dataset management.
 
@@ -60,14 +60,11 @@ from data.h36m_dataset import Human36mDataset
 from data.camera import *
 from scipy.spatial.transform import Rotation as R2
 
-
-
 _ALL_ACTIONS = [
     "Directions", "Discussion", "Eating", "Greeting", "Phoning",
     "Photo","Posing", "Purchases", "Sitting", "SittingDown", "Smoking",
     "Waiting", "Walking", "WalkDog", "WalkTogether"
 ]
-
 
 _MAJOR_JOINTS = [0, 1, 2, 5, 6, 7, 11, 12, 13, 14, 16, 17, 18, 24, 25, 26]
 
@@ -124,8 +121,6 @@ def _find_indices_srnn(data, action):
   T1 = data[(subject, action, subaction1)].shape[0]
   T2 = data[(subject, action, subaction2)].shape[0]
   
-#  print(T1,T2)
-#  prefix, suffix = 50, 100
   prefix, suffix = 40, 10
 
   idx = []
@@ -168,7 +163,6 @@ def collate_fn(batch):
   }
 
   return batch_
-
 
 def collate_fn2(batch):
     """Collate function for data loaders."""
@@ -281,8 +275,6 @@ class H36MDataset(torch.utils.data.Dataset):
     data_sel = action_sequence.reshape((total_frames, -1, 3))
     # total_framesx21x3
     data_sel = data_sel[:, _MAJOR_JOINTS]
-    # total_framesx21xformat_dim
-#    data_sel = self.convert_to_format(data_sel)
     # total_frames x n_joints*dim_per_joint
     data_sel = data_sel.reshape((total_frames, -1))
 
@@ -311,7 +303,6 @@ class H36MDataset(torch.utils.data.Dataset):
     distance_norm = 1.0 - distance_norm
 
     return distance, distance_norm
-    
 
   def _get_item_train(self):
     """Get item for the training mode."""
@@ -364,20 +355,21 @@ class H36MDataset(torch.utils.data.Dataset):
     decoder_outputs_traj[:, 0:pose_size] = data_sel_traj[source_seq_len:, 0:pose_size]
 
     if self._params['noisy'] == True:
-        print("added_noise")
         encoder_inputs = encoder_inputs + ((self._params['std']**0.5)*torch.randn(encoder_inputs.shape).cpu().detach().numpy())/(self._norm_stats['std'])
         decoder_inputs = decoder_inputs + ((self._params['std']**0.5)*torch.randn(decoder_inputs.shape).cpu().detach().numpy())/(self._norm_stats['std'])
+
         encoder_inputs_traj = encoder_inputs_traj + ((self._params['std_traj']**0.5)*torch.randn(encoder_inputs_traj.shape).cpu().detach().numpy())/(self._norm_stats['std_traj'])
         decoder_inputs_traj = decoder_inputs_traj + ((self._params['std_traj']**0.5)*torch.randn(decoder_inputs_traj.shape).cpu().detach().numpy())/(self._norm_stats['std_traj'])
 
+        encoder_inputs = np.float32(encoder_inputs)
+        decoder_inputs = np.float32(decoder_inputs)
+        encoder_inputs_traj = np.float32(encoder_inputs_traj)
+        decoder_inputs_traj = np.float32(decoder_inputs_traj)
     if self._params['pad_decoder_inputs']:
       query = decoder_inputs[0:1, :]
       decoder_inputs = np.repeat(query, target_seq_len, axis=0)
       query_traj = decoder_inputs_traj[0:1, :]
       decoder_inputs_traj = np.repeat(query_traj, target_seq_len, axis=0)
-
-      #if self._params['copy_method'] == 'uniform_scan':
-      #  copy_uniform_scan(encoder_inputs, decoder_inputs)
 
     distance, distance_norm = self.compute_difference_matrix(
         encoder_inputs, decoder_outputs
@@ -395,7 +387,6 @@ class H36MDataset(torch.utils.data.Dataset):
         'decoder_inputs_traj': decoder_inputs_traj,
         'decoder_outputs_traj': decoder_outputs_traj
     }
-
 
   def _get_item_eval_total(self):
         """Sample a batch for evaluation along with euler angles."""
@@ -465,7 +456,6 @@ class H36MDataset(torch.utils.data.Dataset):
     decoder_inputs_traj = batch['decoder_inputs_traj'].view(-1, tgt_len, 3)
     decoder_outputs_traj = batch['decoder_outputs_traj'].view(-1, tgt_len,3)
     encoder_inputs_traj = batch['encoder_inputs_traj'].view(-1, src_len, 3)
-#    distance_traj = batch['src_tgt_distance'].view(-1, src_len, tgt_len)
 
     action_ids = np.array([
         np.repeat(self._action_ids[a], self._test_n_seeds).tolist()
@@ -487,7 +477,6 @@ class H36MDataset(torch.utils.data.Dataset):
         'decoder_inputs_traj': decoder_inputs_traj,
         'decoder_outputs_traj': decoder_outputs_traj
     }
-
 
   def _sample_batch_eval(self, action):
     """Get a random batch of data from the specified bucket, prepare for step.
@@ -528,7 +517,6 @@ class H36MDataset(torch.utils.data.Dataset):
     decoder_inputs_traj = np.zeros((n_seeds, tgt_seq_len, 3), dtype=np.float32)
     decoder_outputs_traj = np.zeros((n_seeds, tgt_seq_len, 3), dtype=np.float32)
 
-    # decoder_outputs_euler = np.zeros((n_seeds, tgt_seq_len, 96), dtype=np.float32)
     action_id_instance= np.zeros((n_seeds, tgt_seq_len), dtype=np.int64)
     distance = np.zeros((n_seeds, src_seq_len, tgt_seq_len), dtype=np.float32)
 
@@ -560,9 +548,6 @@ class H36MDataset(torch.utils.data.Dataset):
         decoder_inputs[i, :, :] = np.repeat(query, tgt_seq_len, axis=0)
         query_traj = decoder_inputs_traj[i, 0:1, :]
         decoder_inputs_traj[i, :, :] = np.repeat(query_traj, tgt_seq_len, axis=0)
-
-        #if self._params['copy_method'] == 'uniform_scan':
-        #  copy_uniform_scan(encoder_inputs, decoder_inputs)
 
       if self._params['pad_decoder_inputs_mean']:
         query_mean = np.mean(encoder_inputs[i], axis=0)[np.newaxis,...]
@@ -743,33 +728,22 @@ class H36MDataset(torch.utils.data.Dataset):
 
   def stat_calculation(self):
     """Loads all the H3.6M dataset into memory."""
-#    self._data_stat = {} # {id_:{} for id_ in self._train_ids}
-#    self._data_srnn_stat = {} # {id_:{} for id_ in self._train_ids}
-#    self._traj_stat = {} # {id_:{} for id_ in self._train_ids}
-#    self._traj_srnn_stat = {} # {id_:{} for id_ in self._train_ids}
 
     self.load_action_defs()
     self._n_actions = len(self._action_defs)
     self.joints_left=[3, 4, 5, 10, 11, 12]
     self.joints_right=[0, 1, 2, 13, 14, 15]
     self._data_ids_stat = [1,5,6,7,8,9,11]
-    self._augment_cameras_ang = [20,50, 90,150,   220,250, 290, 330]
-    self._augment_cameras_x = [4.0,5.0, 1.4, 0,  -3.2,-4.1,-4.8,-4.3]
-    self._augment_cameras_y = [2.0,1.0,-2.0,-4.5,-2.5,0   ,2.2 ,5.4]
-
-#    self._augment_cameras_ang = [50, 150,   220]
-#    self._augment_cameras_x = [5.0,  0,  -3.2]
-#    self._augment_cameras_y = [1.0,-4.5,-2.5  ]
-  
+    self._augment_cameras_ang = [20,50, 90,150,220,250, 290, 330]
+    self._augment_cameras_x = [4.0,5.0, 1.4, 0,-3.2,-4.1,-4.8,-4.3]
+    self._augment_cameras_y = [2.0,1.0,-2.0,-4.5,-2.5,0,2.2 ,5.4]
     
     file_prefix = "{}/S{}/{}_{}.npy"
     dataset_path = os.path.join(self._params['data_path'], 'dataset')
 
     all_dataset = []
-#    all_dataset_ = []
     all_traj=[]
-#    all_traj_=[]
-    data_address = '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/data_3d_h36m.npz'
+    data_address = '../data/data_3d_h36m.npz'
     my_data = np.load(data_address, allow_pickle=True)['positions_3d'].item()
     dataset = Human36mDataset(data_address)       
 
@@ -792,7 +766,6 @@ class H36MDataset(torch.utils.data.Dataset):
             for cam in anim['cameras']:
                 correct_action = sorted(self._action_defs)[int(i/8)]
                 sact = i%8+1
-                    
                 action_sequence = world_to_camera(action_sequence_main, R=cam['orientation'], t=cam['translation'])
                 traj_sequence = action_sequence[:,0]
                 action_sequence = action_sequence - traj_sequence.reshape(-1,1,3)
@@ -834,7 +807,6 @@ class H36MDataset(torch.utils.data.Dataset):
                     action_sequence = np.copy(action_sequence_copy).reshape(-1,self._params['n_joints'],3)
                     action_sequence[:,:,0] *= -1
                     action_sequence[:,:,2] *= -1
-        #            action_sequence[:,self.joints_left+self.joints_right] = action_sequence[:,self.joints_right+self.joints_left] 
                     action_sequence = action_sequence.reshape(-1,self._params['n_joints']*3)
                     all_dataset.append(action_sequence)
                     traj_sequence = np.copy(traj_sequence_copy)
@@ -854,7 +826,6 @@ class H36MDataset(torch.utils.data.Dataset):
                                             action_sequence_main)
                         all_dataset.append(new_seq)
                         all_traj.append(new_seq_traj)
-
                 i+=1
                 
 
@@ -877,21 +848,14 @@ class H36MDataset(torch.utils.data.Dataset):
 
     self.load_action_defs()
     self._n_actions = len(self._action_defs)
-    self.joints_left=[3, 4, 5, 10, 11, 12]
-    self.joints_right=[0, 1, 2, 13, 14, 15]
     self._augment_cameras_ang = [20,50, 90,150,   220,250, 290, 330]
     self._augment_cameras_x = [4.0,5.0, 1.4, 0,  -3.2,-4.1,-4.8,-4.3]
-    self._augment_cameras_y = [2.0,1.0,-2.0,-4.5,-2.5,0   ,2.2 ,5.4]
-    
-#    self._augment_cameras_ang = [50, 150,   220]
-#    self._augment_cameras_x = [5.0,  0,  -3.2]
-#    self._augment_cameras_y = [1.0,-4.5,-2.5  ]    
+    self._augment_cameras_y = [2.0,1.0,-2.0,-4.5,-2.5,0   ,2.2 ,5.4]  
 
     file_prefix = "{}/S{}/{}_{}.npy"
     dataset_path = os.path.join(self._params['data_path'], 'dataset')
 
-
-    data_address = '/home/mohammad/Mohammad_ws/future_pose_prediction/potr/data/data_3d_h36m.npz'
+    data_address = '../data/data_3d_h36m.npz'
     my_data = np.load(data_address, allow_pickle=True)['positions_3d'].item()
     dataset = Human36mDataset(data_address)       
 
@@ -956,14 +920,12 @@ class H36MDataset(torch.utils.data.Dataset):
                     action_sequence = np.copy(action_sequence_copy).reshape(-1,self._params['n_joints'],3)
                     action_sequence[:,:,0] *= -1
                     action_sequence[:,:,2] *= -1
-            #        action_sequence[:,self.joints_left+self.joints_right] = action_sequence[:,self.joints_right+self.joints_left] 
                     action_sequence = action_sequence.reshape(-1,self._params['n_joints']*3)
                     self._data[entry_key] = action_sequence
                     traj_sequence = np.copy(traj_sequence_copy)
                     traj_sequence[:,0] *= -1
                     traj_sequence[:,2] *= -1
                     self._traj[entry_key] = traj_sequence
-                    
   
                     ## augment with respect to a random camera
                     entry_key = (s_id, correct_action,sact+500)
@@ -1014,23 +976,16 @@ class H36MDataset(torch.utils.data.Dataset):
                         new_seq, new_seq_traj = self.new_camera_data(s_id,correct_action,sact,added_sact,ang,x_cam,y_cam,action_sequence_main)
                         self._data[entry_key] = new_seq
                         self._traj[entry_key] = new_seq_traj
-
                 i+=1
                 
     del traj_sequence,action_sequence_,action_sequence
-    
-    
-#    print('[INFO] ({}) All dataset shape: {}'.format(self.__class__.__name__, all_dataset.shape))
-    # compute normalization statistics only when in training phase
-#    if self._mode == 'train' or self._mode == 'eval_total':
-#      self.compute_norm_stats(all_dataset,all_traj)
 
     self._norm_stats['mean'] = my_norm_stat[0]
     self._norm_stats['std'] = my_norm_stat[1]
     
     self._norm_stats['mean_traj'] = my_norm_stat[2]
     self._norm_stats['std_traj'] = my_norm_stat[3]
-    
+    print(my_norm_stat) 
     self.normalize_data()
 
     self._pose_dim = self._norm_stats['std'].shape[-1]
@@ -1039,7 +994,6 @@ class H36MDataset(torch.utils.data.Dataset):
     thisname = self.__class__.__name__
     print('[INFO] ({}) Pose dim: {} Data dim: {}'.format(
         thisname, self._pose_dim, self._data_dim))
-
  
   def normalize_data(self):
     """Data normalization with mean and std removing dimensions with low std."""
@@ -1206,7 +1160,6 @@ def visualize_sequence(action_sequence, data_path, prefix=None, colors=None):
     action_sequence: Numpy array of shape [1, seq_len, l]
     dataset: H36MDataset object.
   """
-  # [1, 49, 63]
 
   if colors is None:
     colors=["#3498db", "#e74c3c"]
@@ -1261,61 +1214,6 @@ def visualize_sequence_mine(action_sequence, data_path, prefix=None, colors=None
   ## [seq_len, 1, pose_dim]
   # nframes should be the same size as target_length
   nframes = sequence.shape[0]
-
-  # batch = 101
-  # elev = 90
-  # azim = 90
-  #
-  # pred_frames = predicted_3d_pos[batch]
-  # gt_frames = new_outputs_3d[batch]
-  # radius = 1.7
-  # size = 6
-  # ### prediction graph
-  # fig = plt.figure(figsize=(size * (1 + 1), size))
-  # ax = fig.add_subplot(1, 2, 1, projection='3d')
-  # ax.view_init(elev=elev, azim=azim)
-  # ax.set_xlim3d([-1.5, 1.5])
-  # ax.set_zlim3d([-2, 2])
-  # ax.set_ylim3d([-0.5, 2])
-  # parents = dataset.skeleton().parents()
-  # trajectories = []
-  # trajectories.append(traj[:, [0, 1]])
-  # dx = 0
-  # dy = 0
-  # for i in range(estimation_field):
-  #   pos = predicted_3d_pos[batch][i].cpu() + torch.tensor([dx, 0, dy])
-  #   dx += 0.4
-  #   for j, j_parent in enumerate(parents):
-  #     if j_parent == -1:
-  #       continue
-  #     ax.plot([pos[j, 0], pos[j_parent, 0]],
-  #             [-pos[j, 1], -pos[j_parent, 1]],
-  #             [pos[j, 2], pos[j_parent, 2]], zdir='y', c='red')
-  #
-  # ### ground truth graph
-  # ax = fig.add_subplot(1, 2, 2, projection='3d')
-  # ax.view_init(elev=elev, azim=azim)
-  # ax.set_xlim3d([-1.5, 1.5])
-  # ax.set_zlim3d([-2, 2])
-  # ax.set_ylim3d([-0.5, 2])
-  # parents = dataset.skeleton().parents()
-  # trajectories = []
-  # trajectories.append(traj[:, [0, 1]])
-  # dx = 0
-  # dy = 0
-  # for i in range(estimation_field):
-  #   pos = new_outputs_3d[batch][i].cpu() + torch.tensor([dx, 0, dy])
-  #   dx += 0.4
-  #   for j, j_parent in enumerate(parents):
-  #     if j_parent == -1:
-  #       continue
-  #     ax.plot([pos[j, 0], pos[j_parent, 0]],
-  #             [-pos[j, 1], -pos[j_parent, 1]],
-  #             [pos[j, 2], pos[j_parent, 2]], zdir='y', c='red')
-  #
-  # fig.savefig(os.path.join(args.checkpoint, 'human3d.png'))
-  # break
-
 
   expmap = utils.revert_coordinate_space(sequence, np.eye(3), np.zeros(3))
   # create data without the root joint
@@ -1410,7 +1308,6 @@ def dataset_factory_total(params):
       drop_last=True,
 #      collate_fn=collate_fn,
   ) 
-
   return train_dataset_fn, eval_dataset_fn
 
 
@@ -1431,11 +1328,6 @@ if __name__ == '__main__':
 
   params = vars(args)
   dataset_t, dataset_v = dataset_factory(params)
-
-#  sample = next(iter(dataset_t))
-#  sequence = np.squeeze(sample['decoder_outputs'].cpu().numpy())
-#  sequence = dataset_v.dataset.unnormalize_pad_data_to_expmap(sequence)
-#  visualize_sequence(sequence[0:1], args.data_path)
 
   import matplotlib.pyplot as plt
   import matplotlib
@@ -1462,7 +1354,6 @@ if __name__ == '__main__':
     name = 'distances/%s_.png'%(i)
     plt.savefig(name)
     plt.close()
-
 
     fig, ax = plt.subplots(figsize=(20,10))
     ax.matshow(d2)

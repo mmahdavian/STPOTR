@@ -1,25 +1,26 @@
 ###############################################################################
-# Pose Transformers (POTR): Human Motion Prediction with Non-Autoregressive 
-# Transformers
+# (STPOTR): Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
+# Copyright (c) 2022 MARS Lab at Simon Fraser University
 # Written by 
-# Angel Martinez <angel.martinez@idiap.ch>,
+# Mohammad Mahdavian <mmahdavi@sfu.ca>,
 # 
 # This file is part of 
-# POTR: Human Motion Prediction with Non-Autoregressive Transformers
+# STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# POTR is free software: you can redistribute it and/or modify
+# STPOTR is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation.
 # 
-# POTR is distributed in the hope that it will be useful,
+# STPOTR is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with POTR. If not, see <http://www.gnu.org/licenses/>.
+# along with STPOTR. If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
 """Implements a model function estimator for training, evaluation and predict.
@@ -181,19 +182,7 @@ class ModelFn(object):
 
   def loss_mse(self, decoder_pred, decoder_gt):
     """Computes the L2 loss between predictions and ground truth."""
-    if self._params['heading'] and decoder_pred.shape[2]==48:
-       weight = torch.ones((1,48)).cuda()
-       weight[0,0] = 1.5
-       weight[0,1] = 1.5
-       weight[0,2] = 1.5
-       weight[0,9] = 1.5
-       weight[0,10] = 1.5
-       weight[0,11] = 1.5
-       weight = weight.unsqueeze(0)
-       weight.repeat(self._params['batch_size'],self._params['target_seq_len'],1)       
-       step_loss = (decoder_pred - decoder_gt)**2  * weight
-    else:
-       step_loss = (decoder_pred - decoder_gt)**2
+    step_loss = (decoder_pred - decoder_gt)**2
     step_loss = step_loss.mean()
 
     return step_loss
@@ -244,7 +233,7 @@ class ModelFn(object):
         if k == 'actions' or k == 'decoder_outputs_action' or k=='action_str':
           continue
         sample[k] = sample[k].to(_DEVICE)
-        
+      
       sample['decoder_inputs_traj'] = sample['decoder_inputs_traj'] - sample['encoder_inputs_traj'][:,0:1]
       sample['decoder_outputs_traj'] = sample['decoder_outputs_traj'] - sample['encoder_inputs_traj'][:,0:1]
       sample['encoder_inputs_traj'] = sample['encoder_inputs_traj'] - sample['encoder_inputs_traj'][:,0:1]
@@ -320,90 +309,12 @@ class ModelFn(object):
     """Main training loop."""
     best_eval_loss=100000
     best_eval_loss_traj=100000
-    best_ade = 1000
-    best_fde = 1000
-    best_ade_traj = 1000
-    best_fde_traj = 1000
     
     self._params['learning_rate'] = self._lr_scheduler.get_last_lr()[0]
     self._global_step = 1
     thisname = self.__class__.__name__
     
-# =============================================================================
-# #      ###### load my model
-#     self._model.load_state_dict(torch.load(
-# # #             '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test11_best_sofar/models/best_epoch_fde_0023_best_sofar.pt',map_location=_DEVICE)
-# # #             '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test16_for_traj/models/best_epoch_fde_traj_0237.pt',map_location=_DEVICE)
-# #              '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test17/models/best_epoch_fde_traj_0194_best_for_fde_traj.pt',map_location=_DEVICE)
-# #              '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test20_best_sofar/models/best_epoch_fde_traj_0000_best_sofar.pt',map_location=_DEVICE)
-#               '/home/mohammad/Mohammad_ws/future_pose_prediction/potrtr/training/test21_best_sofar/models/best_epoch_fde_0002_best_sofar.pt',map_location=_DEVICE)
-#               )
-# 
-# 
-# =============================================================================
-# =============================================================================
     for e in range(self._params['max_epochs']):
-# =============================================================================
-#       for param in self._model.state_dict():
-#           print(param)
-#         
-# =============================================================================
-# =============================================================================
-# =============================================================================
-#       for param in self._model._traj_embedding.parameters():
-#           param.requires_grad=False
-#       for param in self._model._encoder_traj_encodings:
-#           param.requires_grad=False
-#       for param in self._model._traject_decoder.parameters():
-#           param.requires_grad=False
-#       for param in self._model._decoder_traj_encodings:
-#           param.requires_grad=False
-#       for param in self._model._transformer._encoder_traj.parameters():
-#           param.requires_grad=False
-#       for param in self._model._transformer._decoder_traj.parameters():
-#           param.requires_grad=False
-#       for param in self._model._transformer._self_attn_traj.parameters():
-#           param.requires_grad=False
-#       for param in self._model._transformer._self_attn_end_traj.parameters():
-#           param.requires_grad=False
-#       for param in self._model._transformer._traj_pos_linear.parameters():
-#           param.requires_grad=False
-#       for param in self._model._query_embed_traj.parameters():
-#           param.requires_grad=False
-#       for param in self._model._transformer.qkv_traj_end.parameters():
-#           param.requires_grad=False
-#       for param in self._model._transformer.q_traj.parameters():
-#           param.requires_grad=False
-#       for param in self._model._transformer.k_traj.parameters():
-#           param.requires_grad=False
-#       for param in self._model._transformer.v_traj.parameters():
-#           param.requires_grad=False 
-# =============================================================================
-# =============================================================================
-
-# =============================================================================
-#       for param in self._model._pose_embedding.parameters():
-#          param.requires_grad=False
-#       for param in self._model._encoder_pos_encodings:
-#          param.requires_grad=False
-#       for param in self._model._pose_decoder.parameters():
-#          param.requires_grad=False
-#       for param in self._model._decoder_pos_encodings:
-#          param.requires_grad=False
-#       for param in self._model._mask_look_ahead:
-#          param.requires_grad=False
-#       for param in self._model._transformer._encoder.parameters():
-#          param.requires_grad=False
-#       for param in self._model._transformer._decoder.parameters():
-#          param.requires_grad=False
-#       for param in self._model._transformer._self_attn_end.parameters():
-#          param.requires_grad=False
-#       for param in self._model._query_embed.parameters():
-#          param.requires_grad=False
-#       for param in self._model._transformer.qkv.parameters():
-#          param.requires_grad=False
-# =============================================================================
-
           
       self._scalars = {}
       self._model.train()
@@ -454,57 +365,22 @@ class ModelFn(object):
       print("[INFO] ({}) Epoch {:04d}; eval_loss: {:.4f}; eval_loss_traj: {:.4f}; lr: {:.2e}".format(
           thisname, e, eval_loss, eval_loss_traj, self._params['learning_rate'])+act_log)
       
-# =============================================================================
-#       if check_eval<best_eval_loss:
-#           best_eval_loss = check_eval
-#           model_path_pose = os.path.join(
-#               self._params['model_prefix'], 'models', 'best_epoch_pose_%04d.pt'%e)              
-#           self.model_saved_pose = model_path_pose
-#           torch.save(self._model.state_dict(), model_path_pose)
-#           print("Best Epoch for pose saved")
-#           
-#       if check_eval_traj<best_eval_loss_traj:
-#           best_eval_loss_traj = check_eval_traj
-#           model_path_traj = os.path.join(
-#               self._params['model_prefix'], 'models', 'best_epoch_traj_%04d.pt'%e)   
-#           self.model_saved_traj = model_path_traj
-#           torch.save(self._model.state_dict(), model_path_traj)
-#           print("Best Epoch for trajectory saved")
-# =============================================================================
-
-      if self.ADE<best_ade:
-          best_ade = self.ADE
-          model_path_ade = os.path.join(
-              self._params['model_prefix'], 'models', 'best_epoch_ade_%04d.pt'%e)              
-          self.model_path_ade = model_path_ade
-          torch.save(self._model.state_dict(), model_path_ade)
-          print("Best Epoch for ade saved")
+      if check_eval<best_eval_loss:
+          best_eval_loss = check_eval
+          model_path_pose = os.path.join(
+              self._params['model_prefix'], 'models', 'best_epoch_pose_%04d.pt'%e)              
+          self.model_saved_pose = model_path_pose
+          torch.save(self._model.state_dict(), model_path_pose)
+          print("Best Epoch for pose saved")
           
-      if self.FDE<best_fde:
-          best_fde = self.FDE
-          model_path_fde = os.path.join(
-              self._params['model_prefix'], 'models', 'best_epoch_fde_%04d.pt'%e)              
-          self.model_path_fde = model_path_fde
-          torch.save(self._model.state_dict(), model_path_fde)
-          print("Best Epoch for fde saved")
-            
-      if self.ADE_traj<best_ade_traj:
-          best_ade_traj = self.ADE_traj
-          model_path_ade_traj = os.path.join(
-              self._params['model_prefix'], 'models', 'best_epoch_ade_traj_%04d.pt'%e)              
-          self.model_path_ade_traj = model_path_ade_traj
-          torch.save(self._model.state_dict(), model_path_ade_traj)
-          print("Best Epoch for ade_traj saved")
-          
-      if self.FDE_traj<best_fde_traj:
-          best_fde_traj = self.FDE_traj
-          model_path_fde_traj = os.path.join(
-              self._params['model_prefix'], 'models', 'best_epoch_fde_traj_%04d.pt'%e)              
-          self.model_path_fde_traj = model_path_fde_traj
-          torch.save(self._model.state_dict(), model_path_fde_traj)
-          print("Best Epoch for fde_traj saved")
-                      
-          
+      if check_eval_traj<best_eval_loss_traj:
+          best_eval_loss_traj = check_eval_traj
+          model_path_traj = os.path.join(
+              self._params['model_prefix'], 'models', 'best_epoch_traj_%04d.pt'%e)   
+          self.model_saved_traj = model_path_traj
+          torch.save(self._model.state_dict(), model_path_traj)
+          print("Best Epoch for trajectory saved")
+    
       self.write_summary(e)
       model_path = os.path.join(
           self._params['model_prefix'], 'models', 'ckpt_epoch_%04d.pt'%e)
@@ -518,7 +394,6 @@ class ModelFn(object):
     # save the last one
     model_path = os.path.join(self._params['model_prefix'], 'models', 'ckpt_epoch_%04d.pt'%e)
     torch.save(self._model.state_dict(), model_path)
-    
 
     # self.flush_curves()
 
@@ -592,7 +467,6 @@ class ModelFn(object):
             mean_eval_error.append(mean_mean_errors[ms])
           else:
             print("   n/a |", end="")
-
     print()
     return mean_eval_error
 
@@ -606,8 +480,6 @@ class ModelFn(object):
     else:      
         for ms in [80, 160, 320, 400, 560, 1000]:
           print(" {0:5d} |".format(ms), end="")
-        
-
     print()
 
   def flush_curves(self):
@@ -677,20 +549,12 @@ class ModelFn(object):
       if self._params['dataset'] == 'h36m':
         # seq_len x n_seeds x pose_dim
         decoder_pred = decoder_pred.transpose([1, 0, 2])
-
-    
-      # a list or a vector of length n_seeds
-      # each entry of: shape seq_len x complete_pose_dim (H36M == 48)
- #     srnn_pred = self._eval_dataset_fn.dataset.post_process_to_euler(decoder_pred)
       srnn_pred =  decoder_pred
       
       # n_seeds x seq_len
       mean_errors = np.zeros((self._params['eval_num_seeds'], 
           self._params['target_seq_len']))
 
-      
-      # Training is done in exponential map or rotation matrix or quaternion
-      # but the error is reported in Euler angles, as in previous work [3,4,5] 
       for i in np.arange(self._params['eval_num_seeds']):
         # seq_len x complete_pose_dim (H36M==63)
         eulerchannels_pred = srnn_pred[i]
@@ -699,17 +563,11 @@ class ModelFn(object):
         action_gt = srnn_gts[action]
         # seq_len x complete_pose_dim (H36M==63)
         gt_i = np.copy(action_gt.squeeze()[i].numpy())
-        # Only remove global rotation. Global translation was removed before
-  #      gt_i[:, 0:3] = 0
 
-        # here [2,4,5] remove data based on the std of the batch THIS IS WEIRD!
-        # (seq_len, 96) - (seq_len, 96)
         idx_to_use = np.where(np.std(gt_i, 0) > 1e-4)[0]
         euc_error = np.power(gt_i[:,idx_to_use] - eulerchannels_pred[:,idx_to_use], 2)
 
-        # shape: seq_len
         euc_error = np.sum(euc_error, 1)
-        # shape: seq_len
         euc_error = np.sqrt(euc_error)
         mean_errors[i,:] = euc_error
         
@@ -729,45 +587,25 @@ class ModelFn(object):
         # seq_len x n_seeds x pose_dim
         decoder_pred_traj = decoder_pred_traj.transpose([1, 0, 2])
 
-    
-      # a list or a vector of length n_seeds
-      # each entry of: shape seq_len x complete_pose_dim (H36M == 48)
- #     srnn_pred = self._eval_dataset_fn.dataset.post_process_to_euler(decoder_pred)
       srnn_pred_traj =  decoder_pred_traj
       
       # n_seeds x seq_len
       mean_errors_traj = np.zeros((self._params['eval_num_seeds'], 
           self._params['target_seq_len']))
       
-      # Training is done in exponential map or rotation matrix or quaternion
-      # but the error is reported in Euler angles, as in previous work [3,4,5] 
       for i in np.arange(self._params['eval_num_seeds']):
-
-        ## Now for trajectory 
-
-        # seq_len x complete_pose_dim (H36M==63)
         trajchannels_pred = srnn_pred_traj[i]
         
-        # n_seeds x seq_len x complete_pose_dim (H36M==63)
         action_gt_traj = srnn_gts_traj[action]
-        # seq_len x complete_pose_dim (H36M==63)
         gt_i_traj = np.copy(action_gt_traj.squeeze()[i].numpy())
-        # Only remove global rotation. Global translation was removed before
-  #      gt_i[:, 0:3] = 0
 
-        # here [2,4,5] remove data based on the std of the batch THIS IS WEIRD!
-        # (seq_len, 96) - (seq_len, 96)
         idx_to_use = np.where(np.std(gt_i_traj, 0) > 1e-4)[0]
         traj_error = np.power(gt_i_traj[:,idx_to_use] - trajchannels_pred[:,idx_to_use], 2)
 
-        # shape: seq_len
         traj_error = np.sum(traj_error, 1)
-        # shape: seq_len
         traj_error = np.sqrt(traj_error)
         mean_errors_traj[i,:] = traj_error
         
-      # This is simply the mean error over the eval_num_seeds examples
-      # with shape [eval_num_seeds]
       mean_mean_errors_traj = np.mean(mean_errors_traj, 0)
       mean_eval_error_traj_dict[action] = self.print_range_summary(action, mean_mean_errors_traj)
 
@@ -821,9 +659,7 @@ class ModelFn(object):
       gt_class = sample['action_ids']  # class per sequence
       pred_class = decoder_pred[1]
       accuracy = self.compute_class_accurracy_sequence(pred_class[-1], gt_class)
-
 ##############
-
     # for j, sample in enumerate(self._eval_dataset_fn):
     for k in sample2.keys():
       if (k=='decoder_outputs_action') or (k=='actions') or (k=='decoder_outputs_action_traj'):
@@ -889,7 +725,6 @@ class ModelFn(object):
     self.errors_traj = self.compute_stats(preds_traj,gts_traj,maximum_estimation_time)
     self.ADE_traj = self.compute_ade(preds_traj,gts_traj)
     self.FDE_traj = self.compute_fde(preds_traj,gts_traj)
-       
           
     # [batch_size, sequence_length, 3]    
     decoder_pred_traj = decoder_pred[-1][-1]
@@ -998,38 +833,6 @@ def dataset_factory(params):
 
   return train_dataset_fn, eval_dataset_fn, train_dataset.get_pose_dim()
 
-
-if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
-  parser.add_argument('--data_path', type=str, default=None)
-  parser.add_argument('--action', type=str, default=None)
-  parser.add_argument('--use_one_hot',  action='store_true')
-  parser.add_argument('--source_seq_len', type=int, default=50)
-  parser.add_argument('--target_seq_len', type=int, default=25)
-  # parser.add_argument('--input_size', type=int, default=55)
-  parser.add_argument('--batch_size', type=int, default=16)
-  parser.add_argument('--max_epochs', type=int, default=3000)
-  parser.add_argument('--steps_per_epoch', type=int, default=200)
-  parser.add_argument('--learning_rate', type=float, default=0.005)
-  parser.add_argument('--optimizer_fn', type=str, default='adam')
-  parser.add_argument('--warmup_epochs', type=int, default=30)
-  parser.add_argument('--remove_low_std', action='store_true')
-  args = parser.parse_args()
-  
-  params = vars(args)
-  print(params)
-  params['action_subset'] = [args.action]
-  params['virtual_dataset_size'] = args.steps_per_epoch*args.batch_size
-
-  train_dataset_fn, eval_dataset_fn = dataset_factory(params)
-
-  model_fn = Seq2SeqModelFn(
-    params, 
-    train_dataset_fn=train_dataset_fn, 
-    eval_dataset_fn=eval_dataset_fn
-  )
-
-  model_fn.train()
 
 
 

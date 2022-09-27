@@ -1,25 +1,26 @@
 ###############################################################################
-# Pose Transformers (POTR): Human Motion Prediction with Non-Autoregressive 
-# Transformers
+# (STPOTR): Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
+# Copyright (c) 2022 MARS Lab at Simon Fraser University
 # Written by 
-# Angel Martinez <angel.martinez@idiap.ch>,
+# Mohammad Mahdavian <mmahdavi@sfu.ca>,
 # 
 # This file is part of 
-# POTR: Human Motion Prediction with Non-Autoregressive Transformers
+# STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# POTR is free software: you can redistribute it and/or modify
+# STPOTR is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation.
 # 
-# POTR is distributed in the hope that it will be useful,
+# STPOTR is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with POTR. If not, see <http://www.gnu.org/licenses/>.
+# along with STPOTR. If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
 """Implments the model function for the POTR model."""
@@ -40,21 +41,18 @@ thispath = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, thispath+"/../")
 
 import training.seq2seq_model_fn as seq2seq_model_fn
-import models.PoseTransformer as PoseTransformer
+import models.STPoseTransformer as STPoseTransformer
 import models.PoseEncoderDecoder as PoseEncoderDecoder
 import data.H36MDataset_v3 as H36MDataset_v3
-import data.NTURGDDataset as NTURGDDataset
 import utils.utils as utils
 
 from data.h36m_dataset import Human36mDataset
 
 
 _DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#_WEIGHT_DECAY = 0.001
-#_WEIGHT_DECAY = 0.01
 _NSEEDS = 8
 
-class POTRModelFn(seq2seq_model_fn.ModelFn):
+class STPOTRModelFn(seq2seq_model_fn.ModelFn):
   def __init__(self,
                params,
                train_dataset_fn,
@@ -64,7 +62,7 @@ class POTRModelFn(seq2seq_model_fn.ModelFn):
                pose_decoder_fn=None,
                traj_encoder_fn=None,
                traj_decoder_fn=None):
-    super(POTRModelFn, self).__init__(
+    super(STPOTRModelFn, self).__init__(
       params, train_dataset_fn, eval_dataset_fn,eval_dataset_fn_total, pose_encoder_fn, pose_decoder_fn, traj_encoder_fn, traj_decoder_fn)
     self._loss_fn = self.layerwise_loss_fn
 
@@ -131,7 +129,7 @@ class POTRModelFn(seq2seq_model_fn.ModelFn):
     return pose_loss, None , trajectory_loss , velocity_loss
 
   def init_model(self, pose_encoder_fn=None, pose_decoder_fn=None, traj_encoder_fn=None, traj_decoder_fn=None):
-    self._model = PoseTransformer.model_factory(
+    self._model = STPoseTransformer.model_factory(
         self._params, 
         pose_encoder_fn, 
         pose_decoder_fn,
@@ -150,8 +148,6 @@ class POTRModelFn(seq2seq_model_fn.ModelFn):
 def dataset_factory_total(params):
   if params['dataset'] == 'h36m_v3':
     return H36MDataset_v3.dataset_factory_total(params)
-  elif params['dataset'] == 'ntu_rgbd':
-    return NTURGDDataset.dataset_factory(params)
   else:
     raise ValueError('Unknown dataset {}'.format(params['dataset']))
 
@@ -159,25 +155,21 @@ def dataset_factory_total(params):
 def dataset_factory(params):
   if params['dataset'] == 'h36m_v3':
     return H36MDataset_v3.dataset_factory(params)
-  elif params['dataset'] == 'ntu_rgbd':
-    return NTURGDDataset.dataset_factory(params)
   else:
     raise ValueError('Unknown dataset {}'.format(params['dataset']))
-
 
 if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   parser.add_argument('--model_prefix', type=str, default='')
   parser.add_argument('--batch_size', type=int, default=16)
-  parser.add_argument('--data_path', type=str)
+  parser.add_argument('--data_path', type=str,default='../data/h3.6m/')
   parser.add_argument('--learning_rate', type=float, default=1e-4)
   parser.add_argument('--max_epochs', type=int, default=500)
   parser.add_argument('--steps_per_epoch', type=int, default=200)
-  parser.add_argument('--action', nargs='*', type=str, default=None)
+  parser.add_argument('--action', type=str, default='all')
   parser.add_argument('--use_one_hot',  action='store_true')
   parser.add_argument('--init_fn', type=str, default='xavier_init')
   parser.add_argument('--include_last_obs', action='store_true')
-  # pose transformers related parameters
   parser.add_argument('--model_dim', type=int, default=256)
   parser.add_argument('--model_dim_traj', type=int, default=32)
   parser.add_argument('--num_encoder_layers', type=int, default=4)
@@ -220,12 +212,11 @@ if __name__ == '__main__':
   parser.add_argument('--gt_ratio', type=float, default=0)
   parser.add_argument('--weight_decay', type=float, default=0.001)
   parser.add_argument('--std', type=float, default=0.0005)
+  parser.add_argument('--std_traj', type=float, default=0.0005)
   parser.add_argument('--noisy', action='store_true')
-  parser.add_argument('--end_attention', action='store_true')
   parser.add_argument('--heading', action='store_true')
 
   args = parser.parse_args()
-  
   params = vars(args)
   train_dataset_fn, eval_dataset_fn = dataset_factory(params)
   train_dataset_fn_total, eval_dataset_fn_total = dataset_factory_total(params)
@@ -242,7 +233,7 @@ if __name__ == '__main__':
       PoseEncoderDecoder.select_traj_encoder_decoder_fn(params)
 
   for k,v in params.items():
-    print('[INFO] (POTRFn@main) {}: {}'.format(k, v))
+    print('[INFO] (STPOTRFn@main) {}: {}'.format(k, v))
 
   utils.create_dir_tree(params['model_prefix'])
 
@@ -250,7 +241,7 @@ if __name__ == '__main__':
   with open(config_path, 'w') as file_:
     json.dump(params, file_, indent=4)
 
-  model_fn = POTRModelFn(
+  model_fn = STPOTRModelFn(
       params, train_dataset_fn, 
       eval_dataset_fn, 
       eval_dataset_fn_total,
@@ -260,3 +251,4 @@ if __name__ == '__main__':
       traj_decoder_fn,
   )
   model_fn.train()
+  

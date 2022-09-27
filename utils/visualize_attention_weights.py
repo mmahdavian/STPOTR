@@ -1,25 +1,26 @@
 ###############################################################################
-# Pose Transformers (POTR): Human Motion Prediction with Non-Autoregressive 
-# Transformers
+# (STPOTR): Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
+# Copyright (c) 2022 MARS Lab at Simon Fraser University
 # Written by 
-# Angel Martinez <angel.martinez@idiap.ch>,
+# Mohammad Mahdavian <mmahdavi@sfu.ca>,
 # 
 # This file is part of 
-# POTR: Human Motion Prediction with Non-Autoregressive Transformers
+# STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# POTR is free software: you can redistribute it and/or modify
+# STPOTR is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation.
 # 
-# POTR is distributed in the hope that it will be useful,
+# STPOTR is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with POTR. If not, see <http://www.gnu.org/licenses/>.
+# along with STPOTR. If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
 """Visualization of the attention weights."""
@@ -38,7 +39,7 @@ thispath = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, thispath+"/../")
 
 import data.H36MDataset_v3 as H36M_v3
-import models.PoseTransformer as PoseTransformer
+import models.STPoseTransformer as STPoseTransformer
 import models.PoseEncoderDecoder as PoseEncoderDecoder
 
 import matplotlib.pyplot as plt
@@ -139,7 +140,7 @@ if __name__ == '__main__':
   pose_encoder_fn, pose_decoder_fn = \
       PoseEncoderDecoder.select_pose_encoder_decoder_fn(params)
 
-  potr = PoseTransformer.model_factory(
+  potr = STPoseTransformer.model_factory(
       params, pose_encoder_fn, pose_decoder_fn)
   potr.load_state_dict(torch.load(args.model, map_location=_DEVICE))
   potr.to(_DEVICE)

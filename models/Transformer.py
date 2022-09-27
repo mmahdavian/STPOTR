@@ -1,25 +1,26 @@
 ###############################################################################
-# Pose Transformers (POTR): Human Motion Prediction with Non-Autoregressive 
-# Transformers
+# (STPOTR): Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# Copyright (c) 2021 Idiap Research Institute, http://www.idiap.ch/
+# Copyright (c) 2022 MARS Lab at Simon Fraser University
 # Written by 
-# Angel Martinez <angel.martinez@idiap.ch>,
+# Mohammad Mahdavian <mmahdavi@sfu.ca>,
 # 
 # This file is part of 
-# POTR: Human Motion Prediction with Non-Autoregressive Transformers
+# STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a 
+# Non-Autoregressive Transformer for Robot Following Ahead
 # 
-# POTR is free software: you can redistribute it and/or modify
+# STPOTR is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3 as
 # published by the Free Software Foundation.
 # 
-# POTR is distributed in the hope that it will be useful,
+# STPOTR is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 # GNU General Public License for more details.
 # 
 # You should have received a copy of the GNU General Public License
-# along with POTR. If not, see <http://www.gnu.org/licenses/>.
+# along with STPOTR. If not, see <http://www.gnu.org/licenses/>.
 ###############################################################################
 
 
@@ -31,7 +32,6 @@ Implementation of the transformer for sequence to sequence prediction as in
 [1] https://arxiv.org/pdf/1706.03762.pdf
 [2] https://arxiv.org/pdf/2005.12872.pdf
 """
-
 
 import numpy as np
 import os
@@ -52,7 +52,6 @@ import utils.PositionEncodings as PositionEncodings
 import models.TransformerEncoder as Encoder
 import models.TransformerDecoder as Decoder
 
-
 class Transformer(nn.Module):
   def __init__(self,
               num_encoder_layers=6,
@@ -66,6 +65,7 @@ class Transformer(nn.Module):
               use_query_embedding=False,
               pre_normalization=False,
               query_selection=False,
+              end_attention=True,
               target_seq_len=25):
     """Implements the Transformer model for sequence-to-sequence modeling."""
     super(Transformer, self).__init__()
@@ -77,7 +77,7 @@ class Transformer(nn.Module):
     self._use_query_embedding = use_query_embedding
     self._query_selection = query_selection
     self._tgt_seq_len = target_seq_len
-
+    self._end_attention = end_attention
     self._encoder = Encoder.TransformerEncoder(
         num_layers=num_encoder_layers,
         model_dim=model_dim,
@@ -122,12 +122,12 @@ class Transformer(nn.Module):
     
     if self._query_selection:
       self._position_predictor = nn.Linear(self._model_dim, self._tgt_seq_len)
-
     self._self_attn_traj = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
     self._self_attn_end = nn.MultiheadAttention(model_dim, num_heads, dropout)
     self._self_attn_end_traj = nn.MultiheadAttention(model_dim_traj, num_heads, dropout)
 
     self._traj_pos_linear = nn.Linear(self._model_dim, self._model_dim_traj)
+
     self.qkv = nn.Linear(self._model_dim, 3*self._model_dim)
     self.qkv_traj_end = nn.Linear(self._model_dim_traj, 3*self._model_dim_traj)
     self.q_traj = nn.Linear(self._model_dim_traj, self._model_dim_traj)
@@ -203,7 +203,8 @@ class Transformer(nn.Module):
     if self._query_selection:
       indices, prob_matrix = self.process_index_selection(memory)
       tgt_plain, target_seq = query_selection_fn(indices)
-    
+   
+
     out_attn, out_weights = self._decoder(
         target_seq,
         memory,
@@ -213,7 +214,7 @@ class Transformer(nn.Module):
         mask_look_ahead=mask_look_ahead,
         get_attn_weights=get_attn_weights
     )
-    
+   
     memory_copy = self._traj_pos_linear(memory)
 
     query = self.q_traj(memory_traj)
@@ -226,7 +227,7 @@ class Transformer(nn.Module):
         value, 
         need_weights=True
     )
-    
+
     memory_traj = memory_traj.clone() + attn_output_traj_pose
     
     out_attn_traj, out_weights_traj = self._decoder_traj(
@@ -243,7 +244,7 @@ class Transformer(nn.Module):
     output_attn_traj=[]
     
     for i in range(len(out_attn)):
-        enc_dec_tot = torch.concat((memory,out_attn[i]),dim=0) 
+        enc_dec_tot = torch.concat((memory,out_attn[i]),dim=0)
         qkv_end = self.qkv(enc_dec_tot)
         q_end,k_end,v_end = qkv_end.chunk(3,dim=-1)
         end_attn, end_attn_weights = self._self_attn_end(q_end,k_end,v_end,need_weights=True)
