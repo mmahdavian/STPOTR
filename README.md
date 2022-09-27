@@ -3,7 +3,7 @@ This is a repository for the paper "STPOTR: Simultaneous Human Trajectory and Po
 
 ![alt text](images/my_model.png)
 
-It is based on the [potr](https://github.com/idiap/potr) paper with some modificatio
+This repository is based on the [potr](https://github.com/idiap/potr) paper
 ## Installation
 conda create --name stpotr --file stpotr.yml
 
