@@ -7,11 +7,8 @@ This repository is based on the [potr](https://github.com/idiap/potr) paper
 ## Installation
 ```
 conda create --name stpotr --file stpotr.yml
-
 conda activate stpotr
-
 pip install numpy
-
 pip install opencv-python
 ```
 
@@ -24,7 +21,6 @@ We have provided a pretrained model. You can download [this folder](https://driv
 You can use this command to run the model.
 ```
 cd model
-
 python testing.py
 ```
 ## Training
@@ -32,7 +28,6 @@ python testing.py
 In order to train the model you can run this command:
 ```
 cd training
-
 python transformer_model_fn.py --model_prefix=./trained_model \
  --batch_size=16 \
 --data_path=../data/h3.6m/ \
