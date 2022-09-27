@@ -12,3 +12,11 @@ conda activate stpotr
 pip install numpy
 
 pip install opencv-python
+
+You need to download this [data file](https://drive.google.com/file/d/1pNQKtnd1rIl7qPjqIZIJXWDVgisEvabN/view?usp=sharing) and move it to the data folder.
+
+## Testing
+
+We have provided a pretrained model. You can download [this folder](https://drive.google.com/file/d/15eCdRhV1ICyCdAvIAV4DNL9jkdyJUkZ1/view?usp=sharing) and move it to the main repo folder.
+
+## Training
