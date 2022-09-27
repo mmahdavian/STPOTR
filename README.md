@@ -58,3 +58,16 @@ python transformer_model_fn.py --model_prefix=./trained_model \
 --weight_decay=0.00001 \
 --include_last_obs
 ```
+
+## Citation
+If you happen to use the code for your research, please cite the following paper
+
+```
+@article{mahdavian2022stpotr,
+  title={STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a Non-Autoregressive Transformer for Robot Following Ahead},
+  author={Mahdavian, Mohammad and Nikdel, Payam and TaherAhmadi, Mahdi and Chen, Mo},
+  journal={arXiv preprint arXiv:2209.07600},
+  year={2022}
+}
+
+```
