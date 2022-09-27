@@ -11,8 +11,8 @@ conda activate stpotr
 pip install numpy
 pip install opencv-python
 ```
-
-You need to download this [data file](https://drive.google.com/file/d/1pNQKtnd1rIl7qPjqIZIJXWDVgisEvabN/view?usp=sharing) and move it to the data folder.
+## DATA
+We have trained the model with Human3.6m dataset. You need to download this [data file](https://drive.google.com/file/d/1pNQKtnd1rIl7qPjqIZIJXWDVgisEvabN/view?usp=sharing) and move it to the data folder.
 
 ## Testing
 
