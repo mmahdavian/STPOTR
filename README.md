@@ -4,7 +4,7 @@ This is a repository for the paper "STPOTR: Simultaneous Human Trajectory and Po
 ![alt text](images/my_model.png)
 
 ## Resulted Motions
-
+Left=Model Prediction / Right = Ground Truth
 ![alt text](images/motion.png)
 
 This repository is based on the [potr](https://github.com/idiap/potr) paper
