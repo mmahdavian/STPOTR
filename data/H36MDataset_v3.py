@@ -1111,7 +1111,7 @@ class H36MDataset(torch.utils.data.Dataset):
     seq_padded = np.reshape(seq_padded, [batch_size, seq_length, -1])
     return seq_padded
 
-  def unnormalize_mine(self, norm_seq):
+  def unnormalize(self, norm_seq):
     """Unnormalize data and pads with zeros the minor joints.
 
     Args:
@@ -1132,7 +1132,7 @@ class H36MDataset(torch.utils.data.Dataset):
     sequence = np.reshape(sequence, [batch_size, seq_length, -1])
     return sequence
 
-  def unnormalize_mine_traj(self, norm_seq):
+  def unnormalize_traj(self, norm_seq):
     """Unnormalize data and pads with zeros the minor joints.
 
     Args:

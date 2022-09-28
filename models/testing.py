@@ -186,11 +186,11 @@ def Calc_error_h36mdataset():
           gts_traj = np.squeeze(sample['decoder_outputs_traj'].cpu().numpy())
           ins_traj = np.squeeze(sample['encoder_inputs_traj'].cpu().numpy())
 
-          ins = eval_dataset_fn.dataset.unnormalize_mine(ins)
-          ins_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(ins_traj)
+          ins = eval_dataset_fn.dataset.unnormalize(ins)
+          ins_traj = eval_dataset_fn.dataset.unnormalize_traj(ins_traj)
       
-          gts = eval_dataset_fn.dataset.unnormalize_mine(gts)
-          gts_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(gts_traj)
+          gts = eval_dataset_fn.dataset.unnormalize(gts)
+          gts_traj = eval_dataset_fn.dataset.unnormalize_traj(gts_traj)
        
           enc_inputs = torch.squeeze(enc_inputs)
           dec_inputs = torch.squeeze(dec_inputs)
@@ -213,8 +213,8 @@ def Calc_error_h36mdataset():
           prediction = prediction[0]
           prediction = prediction[-1].cpu().numpy()
 
-          preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
-          preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
+          preds = eval_dataset_fn.dataset.unnormalize(prediction)
+          preds_traj = eval_dataset_fn.dataset.unnormalize_traj(traj_prediction)
           
           maximum_estimation_time = params['target_seq_len']/params['frame_rate']
           
@@ -310,7 +310,7 @@ class visual():
         traj = tmp_traj
         return traj
     
-    def unnormalize_mine(self,data):
+    def unnormalize(self,data):
         """Unnormalize data and pads with zeros the minor joints.
     
         Args:
@@ -331,7 +331,7 @@ class visual():
         sequence = np.reshape(sequence, [batch_size, seq_length, -1])
         return sequence
     
-    def unnormalize_mine_traj(self,data):
+    def unnormalize_traj(self,data):
         """Unnormalize data and pads with zeros the minor joints.
     
         Args:
@@ -416,11 +416,11 @@ class visual():
               gts_traj = np.squeeze(sample['decoder_outputs_traj'].cpu().numpy())
               ins_traj = np.squeeze(sample['encoder_inputs_traj'].cpu().numpy())
     
-              ins = eval_dataset_fn.dataset.unnormalize_mine(ins)
-              ins_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(ins_traj)
+              ins = eval_dataset_fn.dataset.unnormalize(ins)
+              ins_traj = eval_dataset_fn.dataset.unnormalize_traj(ins_traj)
           
-              gts = eval_dataset_fn.dataset.unnormalize_mine(gts)
-              gts_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(gts_traj)
+              gts = eval_dataset_fn.dataset.unnormalize(gts)
+              gts_traj = eval_dataset_fn.dataset.unnormalize_traj(gts_traj)
            
               enc_inputs = torch.squeeze(enc_inputs)
               dec_inputs = torch.squeeze(dec_inputs)
@@ -443,8 +443,8 @@ class visual():
               prediction = prediction[0]
               prediction = prediction[-1].cpu().numpy()
     
-              preds = eval_dataset_fn.dataset.unnormalize_mine(prediction)
-              preds_traj = eval_dataset_fn.dataset.unnormalize_mine_traj(traj_prediction)
+              preds = eval_dataset_fn.dataset.unnormalize(prediction)
+              preds_traj = eval_dataset_fn.dataset.unnormalize_traj(traj_prediction)
               
               joints_left=[3, 4, 5, 10, 11, 12]
               joints_right=[0, 1, 2, 13, 14, 15]

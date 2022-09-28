@@ -710,11 +710,11 @@ class ModelFn(object):
     prediction = decoder_pred2[0]
     prediction = prediction[-1].cpu().numpy()
 
-    preds = self._eval_dataset_fn_total.dataset.unnormalize_mine(prediction)
-    preds_traj = self._eval_dataset_fn_total.dataset.unnormalize_mine_traj(traj_prediction)
+    preds = self._eval_dataset_fn_total.dataset.unnormalize(prediction)
+    preds_traj = self._eval_dataset_fn_total.dataset.unnormalize_traj(traj_prediction)
           
-    gts = self._eval_dataset_fn_total.dataset.unnormalize_mine(sample2['decoder_outputs'].cpu().numpy())
-    gts_traj = self._eval_dataset_fn_total.dataset.unnormalize_mine_traj(sample2['decoder_outputs_traj'].cpu().numpy())
+    gts = self._eval_dataset_fn_total.dataset.unnormalize(sample2['decoder_outputs'].cpu().numpy())
+    gts_traj = self._eval_dataset_fn_total.dataset.unnormalize_traj(sample2['decoder_outputs_traj'].cpu().numpy())
     
     maximum_estimation_time = self._params['target_seq_len']/self._params['frame_rate']
     
