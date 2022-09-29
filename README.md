@@ -32,7 +32,7 @@ In order to train the model you can run this command:
 ```
 cd training
 python transformer_model_fn.py --model_prefix=./trained_model \
- --batch_size=16 \
+--batch_size=16 \
 --data_path=../data/h3.6m/ \
 --learning_rate=0.0001 \
 --max_epochs=300 \
