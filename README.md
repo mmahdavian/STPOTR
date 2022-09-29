@@ -1,5 +1,5 @@
 # STPOTR
-This is a repository for the paper "STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a Non-Autoregressive Transformer for Robot Following Ahead". It includes the codes for Simultaneous Human Trajectory and Pose Prediction training and testing. 
+This is a repository for the paper "STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a Non-Autoregressive Transformer for Robot Following Ahead". It includes the codes for Simultaneous Human Trajectory and Pose Prediction training and testing. This repo is developed based on the [potr](https://github.com/idiap/potr) paper.
 
 ![alt text](images/my_model.png)
 
@@ -7,7 +7,6 @@ This is a repository for the paper "STPOTR: Simultaneous Human Trajectory and Po
 Left=Model Prediction / Right = Ground Truth
 ![alt text](images/motion.png)
 
-This repository is based on the [potr](https://github.com/idiap/potr) paper
 ## Installation
 ```
 conda create --name stpotr --file stpotr.yml
