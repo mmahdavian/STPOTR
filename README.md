@@ -5,6 +5,7 @@ This is a repository for the paper "STPOTR: Simultaneous Human Trajectory and Po
 
 ## Resulted Motions
 Left=Model Prediction / Right = Ground Truth
+
 Blue frames are input and red frames are output
 ![alt text](images/motion.png)
 
