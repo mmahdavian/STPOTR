@@ -1,5 +1,5 @@
 # STPOTR
-This is a repository for the paper "STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a Non-Autoregressive Transformer for Robot Following Ahead". It includes the codes for Simultaneous Human Trajectory and Pose Prediction training and testing. This work is partially inspired by the [potr](https://github.com/idiap/potr) paper.
+This is a repository for the paper ["STPOTR: Simultaneous Human Trajectory and Pose Prediction Using a Non-Autoregressive Transformer for Robot Following Ahead"](https://arxiv.org/pdf/2209.07600.pdf). It includes the codes for Simultaneous Human Trajectory and Pose Prediction training and testing. This work is partially inspired by the [potr](https://github.com/idiap/potr) paper.
 
 ![alt text](images/my_model.png)
 
