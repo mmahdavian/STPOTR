@@ -17,7 +17,7 @@ pip install numpy
 pip install opencv-python
 ```
 ## DATA
-We have trained the model with Human3.6m dataset. You need to download this [data file](https://drive.google.com/file/d/1pNQKtnd1rIl7qPjqIZIJXWDVgisEvabN/view?usp=sharing) and move it to the data folder.
+We train the model on Human3.6m dataset. You can download this [data file](https://drive.google.com/file/d/1pNQKtnd1rIl7qPjqIZIJXWDVgisEvabN/view?usp=sharing) and move it to the data folder. It's a pre-processed dataset file which will be used by the model to train the model.
 
 ## Testing
 
