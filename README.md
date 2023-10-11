@@ -78,4 +78,4 @@ If you happen to use the code for your research, please cite the following paper
 ```
 
 ## Credits
-[POTR](https://github.com/idiap/potr)
+Pose Transformers [POTR](https://github.com/idiap/potr)
